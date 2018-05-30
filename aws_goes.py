@@ -14,6 +14,7 @@ import subprocess
 import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
+from tqdm import tqdm
 
 
 class Goes16AWS:
@@ -80,9 +81,6 @@ class Goes16AWS:
             sensor=sensor, product=product, region=region, level=level,
         )
 
-        # return path_prefix
-
-
         p = "{path_prefix}/{year}/{day_of_year}/{hour}/OR_{sensor}-{level}-{product}{region}-M{mode}C{channel:02d}".format(**dict(
                path_prefix=path_prefix,
                product=product,
@@ -117,14 +115,28 @@ class Goes16AWS:
         return map(lambda o: o['Key'], objs)
 
 
-    def download_file(self, key):
-        fn_out = key.split('/')[-1]
-        cmd = "aws s3 cp s3://noaa-goes16/{key} {filename} --no-sign-request".format(key=key, filename=fn_out)
+    def download(self, key, output_dir='goes16', overwrite=False):
 
-        proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE,
-                stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = proc.communicate()
-        if proc.returncode != 0:
-            raise Exception(err)
+        if not type(key) == list:
+            keys = list(key)
+        else:
+            keys = key
+
+        for key in tqdm(keys):
+            fn_out = os.path.join(output_dir, key)
+
+            dir = os.path.dirname(fn_out)
+            if not os.path.exists(dir):
+                os.makedirs(dir)
+
+            cmd = "aws s3 cp s3://{bucket}/{key} {filename} --no-sign-request".format(
+                key=key, filename=fn_out, bucket=self.BUCKET_NAME
+            )
+
+            proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE,
+                    stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            if proc.returncode != 0:
+                raise Exception(err)
 
         print(out)
