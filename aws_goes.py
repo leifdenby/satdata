@@ -77,8 +77,13 @@ class Goes16AWS:
                 ])
             ))
 
+        # for some reason the mesoscale regions use the same folder prefix...
+        region_ = region
+        if region in ['M1', 'M2']:
+            region_ = 'M'
+
         path_prefix = "{sensor}-{level}-{product}{region}".format(
-            sensor=sensor, product=product, region=region, level=level,
+            sensor=sensor, product=product, region=region_, level=level,
         )
 
         p = "{path_prefix}/{year}/{day_of_year}/{hour}/OR_{sensor}-{level}-{product}{region}-M{mode}C{channel:02d}".format(**dict(
@@ -105,20 +110,25 @@ class Goes16AWS:
             sensor_mode=sensor_mode
         )
 
-        objs = self.s3client.list_objects(
+        req = self.s3client.list_objects(
             Bucket=self.BUCKET_NAME, Prefix=prefix
-        )['Contents']
+        )
+
+        if not 'Contents' in req:
+            return []
+
+        objs = req['Contents']
 
         if not include_in_glacier_storage:
             objs = filter(lambda o: o['StorageClass'] != "GLACIER", objs)
 
-        return map(lambda o: o['Key'], objs)
+        return list(map(lambda o: o['Key'], objs))
 
 
     def download(self, key, output_dir='goes16', overwrite=False):
 
         if not type(key) == list:
-            keys = list(key)
+            keys = [key,]
         else:
             keys = key
 
@@ -129,14 +139,22 @@ class Goes16AWS:
             if not os.path.exists(dir):
                 os.makedirs(dir)
 
-            cmd = "aws s3 cp s3://{bucket}/{key} {filename} --no-sign-request".format(
-                key=key, filename=fn_out, bucket=self.BUCKET_NAME
-            )
+            if not os.path.exists(fn_out):
+                cmd = "aws s3 cp s3://{bucket}/{key} {filename} --only-show-errors --no-sign-request".format(
+                    key=key, filename=fn_out, bucket=self.BUCKET_NAME
+                )
 
-            proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE,
-                    stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = proc.communicate()
-            if proc.returncode != 0:
-                raise Exception(err)
+                for output in execute(cmd.split(" ")):
+                    print(output)
 
-        print(out)
+
+def execute(cmd):
+    # https://stackoverflow.com/a/4417735
+    popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+    for stdout_line in iter(popen.stdout.readline, ""):
+        yield stdout_line
+    popen.stdout.close()
+    return_code = popen.wait()
+
+    if return_code:
+        raise subprocess.CalledProcessError(return_code, cmd)
