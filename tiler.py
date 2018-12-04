@@ -5,6 +5,7 @@ import cartopy.crs as ccrs
 import xesmf
 import xarray as xr
 import numpy as np
+import shapely.geometry as geom
 
 import itertools
 
@@ -85,12 +86,17 @@ class Tile():
         """
         old_grid = xr.Dataset(coords=da.coords)
 
+        if not hasattr(da, 'crs'):
+            raise Exception("The provided DataArray doesn't have a "
+                            "projection provided. Please set the `crs` "
+                            "attribute to contain a cartopy projection")
+
         latlon_old = ccrs.PlateCarree().transform_points(
-            img_proj, *np.meshgrid(da.x.values, da.y.values),
+            da.crs, *np.meshgrid(da.x.values, da.y.values),
         )[:,:,:2]
 
-        old_grid['lat'] = (('x', 'y'), latlon_old[...,1])
-        old_grid['lon'] = (('x', 'y'), latlon_old[...,0])
+        old_grid['lat'] = (('y', 'x'), latlon_old[...,1])
+        old_grid['lon'] = (('y', 'x'), latlon_old[...,0])
 
         new_grid = self.get_grid(N=N)
 
