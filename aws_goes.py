@@ -10,6 +10,7 @@ C02: is channel or band 02, There will be sixteen bands, 01-16
 import datetime
 import os
 import subprocess
+import re
 
 import boto3
 from botocore import UNSIGNED
@@ -114,8 +115,21 @@ class Goes16AWS:
         ))
         return p
 
-    def query(self, time, sensor="ABI", product="Rad", region="C", channel=2,
-              sensor_mode=3, include_in_glacier_storage=False, debug=False):
+    def _parse_timestamp(self, s):
+        """
+        s20171671145342: is start of scan time
+        4 digit year
+        3 digit day of year
+        2 digit hour
+        2 digit minute
+        2 digit second
+        1 digit tenth of second
+        """
+        return datetime.datetime.strptime(s[:-1], "%Y%j%H%M%S")
+
+    def query(self, time, dt_max=datetime.timedelta(hours=4), sensor="ABI",
+              product="Rad", region="C", channel=2, sensor_mode=3, 
+              include_in_glacier_storage=False, debug=False):
         prefix = self.make_prefix(
             t=time,
             product=product,
@@ -139,7 +153,23 @@ class Goes16AWS:
         if not include_in_glacier_storage:
             objs = filter(lambda o: o['StorageClass'] != "GLACIER", objs)
 
-        return list(map(lambda o: o['Key'], objs))
+        keys = list(map(lambda o: o['Key'], objs))
+
+        def is_within_dt_max_tol(key):
+            fn = key.split('/')[-1]
+            str_times = re.findall(r's(\d+)_e(\d+)', fn)[0]
+            t_start, t_end = map(self._parse_timestamp, str_times)
+
+            if (t_start - time) > dt_max:
+                return False
+            elif (time - t_end) > dt_max:
+                return False
+            else:
+                return True
+
+        keys = list(filter(is_within_dt_max_tol, keys))
+
+        return keys
 
 
     def download(self, key, output_dir='goes16', overwrite=False, debug=False):
