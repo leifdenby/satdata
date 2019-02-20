@@ -101,7 +101,7 @@ class Goes16AWS:
         return p
 
     def query(self, time, sensor="ABI", product="Rad", region="C", channel=2,
-              sensor_mode=3, include_in_glacier_storage=False):
+              sensor_mode=3, include_in_glacier_storage=False, debug=False):
         prefix = self.make_prefix(
             t=time,
             product=product,
@@ -109,6 +109,9 @@ class Goes16AWS:
             channel=channel,
             sensor_mode=sensor_mode
         )
+
+        if debug:
+            print("Quering prefix `{}`".format(prefix))
 
         req = self.s3client.list_objects(
             Bucket=self.BUCKET_NAME, Prefix=prefix
