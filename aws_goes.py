@@ -15,6 +15,20 @@ import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
 from tqdm import tqdm
+import progressbar
+
+class S3DownloadWithProgressBar(object):
+    def __init__(self, client, bucket, key, fn_out):
+        self._size = client.head_object(Bucket=bucket, Key=key)['ContentLength']
+        self.pb = progressbar.ProgressBar(maxval=self._size)
+
+        self.pb.start()
+        client.download_file(
+            Bucket=bucket, Key=key, Filename=fn_out, Callback=self
+        )
+
+    def __call__(self, chunk):
+        self.pb.update(self.pb.currval + chunk)
 
 
 class Goes16AWS:
@@ -148,9 +162,13 @@ class Goes16AWS:
                 if debug:
                     print("File `{}` already exists in `{}`".format(key, fn_out))
             else:
-                self.s3client.download_file(
-                    self.BUCKET_NAME, key, fn_out
-                )
+                S3DownloadWithProgressBar(client=self.s3client,
+                        bucket=self.BUCKET_NAME,
+                        key=key, fn_out=fn_out)
+                # self.s3client.download_file(
+                    # Bucket=self.BUCKET_NAME, Key=key, Filename=fn_out,
+                    # Callback=dl_progress
+                # )
 
             files.append(fn_out)
 
