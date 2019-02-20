@@ -1,6 +1,6 @@
 """
 ABI-L1b-RadF-M3C02 is delineated by hyphen '-':
-ABI: is ABI Sensor
+jBI: is ABI Sensor
 L1b: is processing level, L1b data or L2
 Rad: is radiances. Other products include CMIP (Cloud and Moisture Imagery products) and MCMIP (multichannel CMIP).
 F: is full disk (normally every 15 minutes), C is continental U.S. (normally every 5 minutes), M1 and M2 is Mesoscale region 1 and region 2 (usually every minute each)
@@ -128,12 +128,14 @@ class Goes16AWS:
         return list(map(lambda o: o['Key'], objs))
 
 
-    def download(self, key, output_dir='goes16', overwrite=False):
+    def download(self, key, output_dir='goes16', overwrite=False, debug=False):
 
         if not type(key) == list:
             keys = [key,]
         else:
             keys = key
+
+        files = []
 
         for key in tqdm(keys):
             fn_out = os.path.join(output_dir, key)
@@ -142,13 +144,17 @@ class Goes16AWS:
             if not os.path.exists(dir):
                 os.makedirs(dir)
 
-            if not os.path.exists(fn_out):
-                cmd = "aws s3 cp s3://{bucket}/{key} {filename} --only-show-errors --no-sign-request".format(
-                    key=key, filename=fn_out, bucket=self.BUCKET_NAME
+            if os.path.exists(fn_out) and not overwrite:
+                if debug:
+                    print("File `{}` already exists in `{}`".format(key, fn_out))
+            else:
+                self.s3client.download_file(
+                    self.BUCKET_NAME, key, fn_out
                 )
 
-                for output in execute(cmd.split(" ")):
-                    print(output)
+            files.append(fn_out)
+
+        return files
 
 
 def execute(cmd):
