@@ -5,13 +5,9 @@ import cartopy.crs as ccrs
 import xesmf
 import xarray as xr
 import numpy as np
-from scipy.constants import pi
 import shapely.geometry as geom
 
 import itertools
-import warnings
-
-from .utils import create_true_color_img
 
 
 class Tile():
@@ -84,38 +80,10 @@ class Tile():
 
         return ds
 
-    def _crop_input(self, da, pad_pct=0.1):
-        xs, ys, _ = da.crs.transform_points(ccrs.PlateCarree(),
-                                            *self.get_bounds().T
-                                           ).T
-        x_min, x_max = np.min(xs), np.max(xs)
-        y_min, y_max = np.min(ys), np.max(ys)
-        lx = x_max - x_min
-        ly = y_max - y_min
-
-        x_min -= pad_pct*lx
-        y_min -= pad_pct*ly
-        x_max += pad_pct*lx
-        y_max += pad_pct*ly
-
-        if da.x[0] > da.x[-1]:
-            x_slice = slice(x_max, x_min)
-        else:
-            x_slice = slice(x_min, x_max)
-
-        if da.y[0] > da.y[-1]:
-            y_slice = slice(y_max, y_min)
-        else:
-            y_slice = slice(y_min, y_max)
-
-        return da.sel(x=x_slice, y=y_slice)
-
-    def resample(self, da, N, method='bilinear', crop_pad_pct=0.1):
+    def resample(self, da, N, method='bilinear'):
         """
         Resample a xarray DataArray onto this tile with grid made of NxN points
         """
-        da = self._crop_input(da=da, pad_pct=crop_pad_pct)
-
         old_grid = xr.Dataset(coords=da.coords)
 
         if not hasattr(da, 'crs'):
@@ -141,75 +109,13 @@ class Tile():
             Nx_in=Nx_in, Nx_out=Nx_out, Ny_out=Ny_out,
         )
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            regridder = xesmf.Regridder(filename=regridder_weights_fn,
-                reuse_weights=True, ds_in=old_grid, ds_out=new_grid,
-                method=method, 
-            )
+        regridder = xesmf.Regridder(filename=regridder_weights_fn,
+            reuse_weights=True, ds_in=old_grid, ds_out=new_grid,
+            method=method,
+        )
 
         da_resampled = regridder(da)
         da_resampled['x'] = new_grid.x
         da_resampled['y'] = new_grid.y
 
         return da_resampled
-
-    def create_true_color_img(self, das_channels, resampling_N):
-        das_channels_resampled = [self.resample(da, N=resampling_N)
-                                  for da in das_channels]
-        return create_true_color_img(das_channels=das_channels_resampled)
-
-
-def triplet_generator(target_channels, tile_size, tiling_bbox, tile_N,
-                      distant_channels=None, neigh_dist_scaling=1.0,
-                      distant_dist_scaling=10.):
-    # generate (lat, lon) locations inside tiling_box
-
-    # XXX: this is a really poor approximation to degrees to meters, should use
-    # Haversine formula or something like it
-    deg_to_m = 100e3
-    tile_size_deg = tile_size/deg_to_m
-    
-    def _generate_latlon():
-        (lon_min, lat_min), (lon_max, lat_max) = tiling_bbox
-        
-        lat = lat_min + (lat_max - lat_min)*np.random.random()
-        lon = lon_min + (lon_max - lon_min)*np.random.random()
-
-        return (lon, lat)
-
-    def _perturb_loc(loc, scaling):
-        theta = 2*pi*np.random.random()
-        r = scaling*tile_size_deg*np.random.normal(loc=1.0, scale=0.1)
-
-        dlon = r*np.cos(theta)
-        dlat = r*np.sin(theta)
-
-        return (loc[0] + dlon, loc[1] + dlat)
-
-
-    anchor_loc = _generate_latlon()
-    neighbor_loc = _perturb_loc(anchor_loc, scaling=neigh_dist_scaling)
-
-    if distant_channels is None:
-        dist_loc = _generate_latlon()
-    else:
-        dist_loc = _perturb_loc(anchor_loc, scaling=distant_dist_scaling)
-
-    locs = [anchor_loc, neighbor_loc, dist_loc]
-
-    tiles = [
-        Tile(lat0=lat, lon0=lon, size=tile_size)
-        for (lon, lat) in locs
-    ]
-
-    channel_sets = [target_channels, target_channels]
-    if distant_channels is None:
-        channel_sets.append(target_channels)
-    else:
-        channel_sets.append(distant_channels)
-
-    return [
-        tile.create_true_color_img(das_channels, resampling_N=tile_N)
-        for (tile, das_channels) in zip(tiles, channel_sets)
-    ]
