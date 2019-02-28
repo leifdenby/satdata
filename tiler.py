@@ -9,6 +9,10 @@ import shapely.geometry as geom
 from pathlib import Path
 
 import itertools
+import warnings
+
+from .utils import create_true_color_img
+
 import os
 
 from xesmf.backend import (esmf_grid, add_corner,
@@ -174,3 +178,8 @@ class Tile():
         da_resampled['y'] = new_grid.y
 
         return da_resampled
+
+    def create_true_color_img(self, das_channels, resampling_N):
+        das_channels_resampled = [self.resample(da, N=resampling_N)
+                                  for da in das_channels]
+        return create_true_color_img(das_channels=das_channels_resampled)
