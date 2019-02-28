@@ -6,8 +6,27 @@ import xesmf
 import xarray as xr
 import numpy as np
 import shapely.geometry as geom
+from pathlib import Path
 
 import itertools
+import os
+
+from xesmf.backend import (esmf_grid, add_corner,
+                           esmf_regrid_build, esmf_regrid_finalize)
+
+import tempfile
+
+class SilentRegridder(xesmf.Regridder):
+    def _write_weight_file(self):
+        if os.path.exists(self.filename):
+            if self.reuse_weights:
+                return  # do not compute it again, just read it
+            else:
+                os.remove(self.filename)
+
+        regrid = esmf_regrid_build(self._grid_in, self._grid_out, self.method,
+                                   filename=self.filename)
+        esmf_regrid_finalize(regrid) # only need weights, not regrid object
 
 
 class Tile():
@@ -15,6 +34,10 @@ class Tile():
         self.lat0 = lat0
         self.lon0 = lon0
         self.size = size
+
+        regridder_basedir = Path('/nfs/a289/earlcd/tmp/regridding')
+        regridder_basedir.mkdir(exist_ok=True, parents=True)
+        self.regridder_tmpdir = Path(tempfile.mkdtemp(dir=regridder_basedir))
 
     def get_bounds(self):
         """
