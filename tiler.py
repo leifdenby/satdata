@@ -5,6 +5,7 @@ import cartopy.crs as ccrs
 import xesmf
 import xarray as xr
 import numpy as np
+from scipy.constants import pi
 import shapely.geometry as geom
 from pathlib import Path
 
@@ -183,3 +184,80 @@ class Tile():
         das_channels_resampled = [self.resample(da, N=resampling_N)
                                   for da in das_channels]
         return create_true_color_img(das_channels=das_channels_resampled)
+
+    def serialize_props(self):
+        return dict(
+            lon=float(self.lon0),
+            lat=float(self.lat0),
+            size=float(self.size),
+        )
+
+
+def triplet_generator(target_channels, tile_size, tiling_bbox, tile_N,
+                      distant_channels=None, neigh_dist_scaling=1.0,
+                      distant_dist_scaling=10.):
+    # generate (lat, lon) locations inside tiling_box
+
+    # XXX: this is a really poor approximation to degrees to meters, should use
+    # Haversine formula or something like it
+    deg_to_m = 100e3
+    tile_size_deg = tile_size/deg_to_m
+
+    def _point_valid(lon, lat):
+        (lon_min, lat_min), (lon_max, lat_max) = tiling_bbox
+        try:
+            assert lon_min <= lon <= lon_max
+            assert lat_min <= lat <= lat_max
+            return True
+        except:
+            return False
+
+    def _generate_latlon():
+        (lon_min, lat_min), (lon_max, lat_max) = tiling_bbox
+
+        lat = lat_min + (lat_max - lat_min)*np.random.random()
+        lon = lon_min + (lon_max - lon_min)*np.random.random()
+
+        if not _point_valid(lon, lat):
+            raise Exception(lon, lat)
+        else:
+            return (lon, lat)
+
+    def _perturb_loc(loc, scaling):
+        theta = 2*pi*np.random.random()
+        r = scaling*tile_size_deg*np.random.normal(loc=1.0, scale=0.1)
+
+        dlon = r*np.cos(theta)
+        dlat = r*np.sin(theta)
+
+        return (loc[0] + dlon, loc[1] + dlat)
+
+
+    anchor_loc = _generate_latlon()
+    neighbor_loc = _perturb_loc(anchor_loc, scaling=neigh_dist_scaling)
+
+    if distant_channels is None:
+        while True:
+            dist_loc = _perturb_loc(anchor_loc, scaling=distant_dist_scaling)
+            if _point_valid(dist_loc):
+                break
+    else:
+        dist_loc = _generate_latlon()
+
+    locs = [anchor_loc, neighbor_loc, dist_loc]
+
+    tiles = [
+        Tile(lat0=lat, lon0=lon, size=tile_size)
+        for (lon, lat) in locs
+    ]
+
+    channel_sets = [target_channels, target_channels]
+    if distant_channels is None:
+        channel_sets.append(target_channels)
+    else:
+        channel_sets.append(distant_channels)
+
+    return [
+        (tile, tile.create_true_color_img(das_channels, resampling_N=tile_N))
+        for (tile, das_channels) in zip(tiles, channel_sets)
+    ]
