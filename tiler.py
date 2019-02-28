@@ -160,10 +160,14 @@ class Tile():
             Nx_in=Nx_in, Nx_out=Nx_out, Ny_out=Ny_out,
         )
 
-        regridder = xesmf.Regridder(filename=regridder_weights_fn,
-            reuse_weights=True, ds_in=old_grid, ds_out=new_grid,
-            method=method,
-        )
+        regridder_weights_fn = str(self.regridder_tmpdir/regridder_weights_fn)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            regridder = SilentRegridder(filename=regridder_weights_fn,
+                reuse_weights=False, ds_in=old_grid, ds_out=new_grid,
+                method=method,
+            )
 
         da_resampled = regridder(da)
         da_resampled['x'] = new_grid.x
