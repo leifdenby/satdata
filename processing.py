@@ -29,7 +29,7 @@ def set_projection_attribute_and_scale_coords(ds):
     
     return ds
 
-def fetch_channels(times, dt_max, cli, data_path):
+def fetch_channels(times, dt_max, cli, data_path, channels=[1,2,3]):
     def get_channel_file(t, channel):
         keys = cli.query(time=t, region='F', debug=False, channel=channel,
                          dt_max=dt_max)
@@ -53,7 +53,7 @@ def fetch_channels(times, dt_max, cli, data_path):
     print("Fetching data")
     # fetch a channel set for each day
     channel_sets = [
-        [get_channel_file(t=t, channel=n+1) for n in range(3)]
+        [get_channel_file(t=t, channel=c) for c in channels]
         for t in times
     ]
 
