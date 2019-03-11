@@ -115,7 +115,8 @@ class Goes16AWS:
         ))
         return p
 
-    def _parse_timestamp(self, s):
+    @staticmethod
+    def parse_timestamp(s):
         """
         s20171671145342: is start of scan time
         4 digit year
