@@ -41,6 +41,8 @@ class Tile():
         self.size = size
 
         regridder_basedir = Path('/nfs/a289/earlcd/tmp/regridding')
+        if not regridder_basedir.exists():
+            regridder_basedir = Path('/tmp/regridding')
         regridder_basedir.mkdir(exist_ok=True, parents=True)
         self.regridder_tmpdir = Path(tempfile.mkdtemp(dir=regridder_basedir))
 
