@@ -110,7 +110,7 @@ class Tile():
 
         return ds
 
-    def _crop_input(self, da, pad_pct=0.1):
+    def crop_field(self, da, pad_pct=0.1):
         xs, ys, _ = da.crs.transform_points(ccrs.PlateCarree(),
                                             *self.get_bounds().T
                                            ).T
@@ -140,7 +140,7 @@ class Tile():
         """
         Resample a xarray DataArray onto this tile with grid made of NxN points
         """
-        da = self._crop_input(da=da, pad_pct=crop_pad_pct)
+        da = self.crop_field(da=da, pad_pct=crop_pad_pct)
 
         old_grid = xr.Dataset(coords=da.coords)
 
