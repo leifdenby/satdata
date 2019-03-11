@@ -194,7 +194,6 @@ class Tile():
             size=float(self.size),
         )
 
-
 def triplet_generator(target_channels, tile_size, tiling_bbox, tile_N,
                       distant_channels=None, neigh_dist_scaling=1.0,
                       distant_dist_scaling=10.):

@@ -143,3 +143,29 @@ def triplet_fn(kws, *args, **kwargs):
     meta_fn = tile_path/"{:05d}_meta.yaml".format(triplet_n)
     with open(meta_fn, 'w') as fh:
         yaml.dump(meta, fh, default_flow_style=False)
+
+
+class ProcessedTile(tiler.Tile):
+    @classmethod
+    def load(cls, meta_fn):
+        tile_id = meta_fn.name.split('_')[0]
+        meta = yaml.load(open(meta_fn))
+        anchor_meta = meta['target']['anchor']
+        tile = cls(
+            lat0=anchor_meta['lat'],
+            lon0=anchor_meta['lon'], 
+            size=anchor_meta['size']
+        )
+
+        setattr(tile, 'id', tile_id)
+        setattr(tile, 'source', meta['target']['aws_s3_key'])
+
+        return tile
+
+    def get_source(tile, channel_override):
+        key_ch1 = tile.source
+        key_ch = key_ch1.replace('M3C01', 'M3C{:02d}'.format(channel_override))
+
+        da_channel = get_file(key_ch)
+
+        return da_channel
