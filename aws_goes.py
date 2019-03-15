@@ -115,7 +115,8 @@ class Goes16AWS:
         ))
         return p
 
-    def _parse_timestamp(self, s):
+    @staticmethod
+    def parse_timestamp(s):
         """
         s20171671145342: is start of scan time
         4 digit year
@@ -158,7 +159,7 @@ class Goes16AWS:
         def is_within_dt_max_tol(key):
             fn = key.split('/')[-1]
             str_times = re.findall(r's(\d+)_e(\d+)', fn)[0]
-            t_start, t_end = map(self._parse_timestamp, str_times)
+            t_start, t_end = map(self.parse_timestamp, str_times)
 
             if (t_start - time) > dt_max:
                 return False
