@@ -182,10 +182,17 @@ class Tile():
 
         return da_resampled
 
-    def create_true_color_img(self, das_channels, resampling_N):
-        das_channels_resampled = [self.resample(da, N=resampling_N)
-                                  for da in das_channels]
-        return create_true_color_img(das_channels=das_channels_resampled)
+    def create_true_color_img(self, da_scene, resampling_N):
+        if isinstance(da_scene, list):
+            das_channels_resampled = [
+                self.resample(da, N=resampling_N) for da in da_scene
+            ]
+            return create_true_color_img(das_channels=das_channels_resampled)
+        else:
+            raise NotImplementedError
+
+        # da_tile_channels = self.resample(da_scene, N=resampling_N)
+        # return create_true_color_img(da_channels=da_tile_channels)
 
     def serialize_props(self):
         return dict(
@@ -194,8 +201,8 @@ class Tile():
             size=float(self.size),
         )
 
-def triplet_generator(target_channels, tile_size, tiling_bbox, tile_N,
-                      distant_channels=None, neigh_dist_scaling=1.0,
+def triplet_generator(da_target_scene, tile_size, tiling_bbox, tile_N,
+                      da_distant_scene=None, neigh_dist_scaling=1.0,
                       distant_dist_scaling=10.):
     # generate (lat, lon) locations inside tiling_box
 
@@ -237,7 +244,7 @@ def triplet_generator(target_channels, tile_size, tiling_bbox, tile_N,
     anchor_loc = _generate_latlon()
     neighbor_loc = _perturb_loc(anchor_loc, scaling=neigh_dist_scaling)
 
-    if distant_channels is None:
+    if da_distant_scene is None:
         while True:
             dist_loc = _perturb_loc(anchor_loc, scaling=distant_dist_scaling)
             if _point_valid(dist_loc):
@@ -252,13 +259,16 @@ def triplet_generator(target_channels, tile_size, tiling_bbox, tile_N,
         for (lon, lat) in locs
     ]
 
-    channel_sets = [target_channels, target_channels]
-    if distant_channels is None:
-        channel_sets.append(target_channels)
+    # create a list of the three scenes used for creating triplets
+    da_scene_set = [da_target_scene, da_target_scene]
+    if da_distant_scene is None:
+        da_scene_set.append(da_target_scene)
     else:
-        channel_sets.append(distant_channels)
+        da_scene_set.append(da_distant_scene)
 
+    # on each of the three scenes use the three tiles to create a resampled
+    # image
     return [
-        (tile, tile.create_true_color_img(das_channels, resampling_N=tile_N))
-        for (tile, das_channels) in zip(tiles, channel_sets)
+        (tile, tile.create_true_color_img(da_scene, resampling_N=tile_N))
+        for (tile, da_scene) in zip(tiles, da_scene_set)
     ]
