@@ -25,4 +25,4 @@ def parallel(func, arr:Collection, max_workers:int=None):
         with ProcessPoolExecutor(max_workers=max_workers) as ex:
             futures = [ex.submit(func,o,i) for i,o in enumerate(arr)]
     for f in progress_bar(concurrent.futures.as_completed(futures), total=len(arr)):
-        f.result()
+        yield f.result()
