@@ -71,6 +71,13 @@ class Goes16AWS:
 
     URL = "https://registry.opendata.aws/noaa-goes/"
 
+    KEY_REGEX = re.compile(".*/OR_ABI-L1b-RadF-"
+                          "M3C(?P<channel>\d+)_"
+                          "G16_s(?P<start_time>\d+)_"
+                          "e(?P<end_time>\d+)_"
+                          "c(?P<file_creation_time>\d+)"
+                          "\.nc")
+
     def __init__(self):
         # to access a public bucket we must indicate to boto not to sign requests
         # (https://stackoverflow.com/a/34866092)
@@ -116,6 +123,14 @@ class Goes16AWS:
                region=region,
         ))
         return p
+
+    @classmethod
+    def parse_key(cls, k):
+        match = cls.KEY_REGEX.match(k)
+        if match:
+            return match.groupdict()
+        else:
+            return None
 
     @staticmethod
     def parse_timestamp(s):
