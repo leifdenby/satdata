@@ -12,12 +12,14 @@ import yaml
 from . import tiler
 from .multiprocessing import parallel
 
+try:
+    import satpy
+    HAS_SATPY = True
+except ImportError:
+    HAS_SATPY = False
 
-def load_channels(fns):
-    pass
 
-
-def find_dataset_filenames(times, dt_max, cli, channels=[1,2,3]):
+def find_datasets_keys(times, dt_max, cli, channels=[1,2,3]):
     """
     query API to find datasets with each required channel
     """
@@ -39,7 +41,6 @@ class FakeScene(list):
 
 def _load_channels_old(fns, cli):
     CHUNK_SIZE = 4096 # satpy uses this chunksize, so let's do the same
-    REQUIRED_CHANNELS = [1,2,3]
 
     def set_projection_attribute_and_scale_coords(ds):
         gp = ds.goes_imager_projection
@@ -67,12 +68,7 @@ def _load_channels_old(fns, cli):
 
         return da
 
-    def fn_is_required(fn):
-        return int(cli.parse_key(fn)['channel']) in REQUIRED_CHANNELS
-
-    fns_required = list(filter(fn_is_required, fns))
-    channel_da_arr = [_load_file(fn) for fn in fns_required]
-    assert len(channel_da_arr) == len(REQUIRED_CHANNELS)
+    channel_da_arr = [_load_file(fn) for fn in fns]
 
     # it would be tempting concat these into a single data array here, but we
     # can't because the different channels have different resolution
@@ -80,45 +76,42 @@ def _load_channels_old(fns, cli):
 
     return da_scene
 
-def load_data_for_rgb(dataset_filenames, cli, use_old=True):
-    das = []  # dataarrays
+def load_data_for_rgb(datasets_filenames, cli, use_old=True):
+    REQUIRED_CHANNELS = [1,2,3]
+    def fn_is_required(fn):
+        return int(cli.parse_key(fn)['channel']) in REQUIRED_CHANNELS
 
-    for fns in dataset_filenames:
+    das = []  # dataarrays
+    for fns in datasets_filenames:
+        fns = list(filter(fn_is_required, fns))
+
         if use_old:
             da_channels = _load_channels_old(fns=fns, cli=cli)
+        else:
+            if not HAS_SATPY:
+                raise Exception("Must have satpy installed to use new RGB method")
+
+            scene = satpy.Scene(reader='abi_l1b', filenames=fns)
+            scene.load(['true_color'])
+
+            # create a new scene so that the true color composite is available,
+            # because we've used "native" as the resampler this will composite
+            # all channels into the highest possible resolution
+            new_scene = scene.resample(resampler='native')
+
+            # get out an RGB data array for the true color composite. This is
+            # all lazy evaluated so only the bit that the tiler will later use
+            # will actually be computed
+            da_channels = new_scene['true_color']
+
+            # have to set the projection info otherwise the tiler can't resample
+            da_channels.attrs['crs'] = scene.max_area().to_cartopy_crs()
+
+            da_channels.attrs['source_files'] = fns
 
         das.append(da_channels)
 
     return das
-
-def fetch_channels():
-    def get_channel_file(t, channel):
-        keys = cli.query(time=t, region='F', debug=False, channel=channel,
-                         dt_max=dt_max)
-
-        key = keys[0]
-
-
-        ds = xr.open_dataset(fn)
-        ds = set_projection_attribute_and_scale_coords(ds)
-
-        da = ds.Rad
-        da.attrs['crs'] = ds.crs
-        da.attrs['channel'] = channel
-
-        da.attrs['query_time'] = t
-        da.attrs['aws_s3_key'] = key
-
-        return da
-
-    print("Fetching data")
-    # fetch a channel set for each day
-    channel_sets = [
-        [get_channel_file(t=t, channel=c) for c in channels]
-        for t in times
-    ]
-
-    return channel_sets
 
 def generate_tile_triplets(scenes, tiling_bbox, tile_N, tile_size, output_dir,
                            N_triplets, max_workers=4):
@@ -150,7 +143,7 @@ def generate_tile_triplets(scenes, tiling_bbox, tile_N, tile_size, output_dir,
         )
 
     if max_workers != 1:
-        parallel(triplet_fn, arglist, max_workers=4)
+        print(list(parallel(triplet_fn, arglist, max_workers=max_workers)))
     else:
         for args in tqdm(arglist):
             triplet_fn(args)

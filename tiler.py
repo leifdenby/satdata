@@ -34,6 +34,32 @@ class SilentRegridder(xesmf.Regridder):
         esmf_regrid_finalize(regrid) # only need weights, not regrid object
 
 
+def crop_field_to_latlon_box(da, box, pad_pct=0.1):
+    xs, ys, _ = da.crs.transform_points(ccrs.PlateCarree(), *box).T
+
+    x_min, x_max = np.min(xs), np.max(xs)
+    y_min, y_max = np.min(ys), np.max(ys)
+    lx = x_max - x_min
+    ly = y_max - y_min
+
+    x_min -= pad_pct*lx
+    y_min -= pad_pct*ly
+    x_max += pad_pct*lx
+    y_max += pad_pct*ly
+
+    if da.x[0] > da.x[-1]:
+        x_slice = slice(x_max, x_min)
+    else:
+        x_slice = slice(x_min, x_max)
+
+    if da.y[0] > da.y[-1]:
+        y_slice = slice(y_max, y_min)
+    else:
+        y_slice = slice(y_min, y_max)
+
+    return da.sel(x=x_slice, y=y_slice)
+
+
 class Tile():
     def __init__(self, lat0, lon0, size):
         self.lat0 = lat0
@@ -111,30 +137,9 @@ class Tile():
         return ds
 
     def crop_field(self, da, pad_pct=0.1):
-        xs, ys, _ = da.crs.transform_points(ccrs.PlateCarree(),
-                                            *self.get_bounds().T
-                                           ).T
-        x_min, x_max = np.min(xs), np.max(xs)
-        y_min, y_max = np.min(ys), np.max(ys)
-        lx = x_max - x_min
-        ly = y_max - y_min
-
-        x_min -= pad_pct*lx
-        y_min -= pad_pct*ly
-        x_max += pad_pct*lx
-        y_max += pad_pct*ly
-
-        if da.x[0] > da.x[-1]:
-            x_slice = slice(x_max, x_min)
-        else:
-            x_slice = slice(x_min, x_max)
-
-        if da.y[0] > da.y[-1]:
-            y_slice = slice(y_max, y_min)
-        else:
-            y_slice = slice(y_min, y_max)
-
-        return da.sel(x=x_slice, y=y_slice)
+        return crop_field_to_latlon_box(
+            da=da, box=self.get_bounds().T, pad_pct=pad_pct
+        )
 
     def resample(self, da, N, method='bilinear', crop_pad_pct=0.1):
         """
@@ -189,7 +194,17 @@ class Tile():
             ]
             return create_true_color_img(das_channels=das_channels_resampled)
         else:
-            raise NotImplementedError
+            from satpy.writers import get_enhanced_image
+            da_channels_resampled = self.resample(da_scene, N=resampling_N)
+
+            # setting these attrs makes the composite look the same (!) :D,
+            # just rotated for some reason... (but that shouldn't matter for
+            # training)
+            da_channels_resampled.attrs.update(da_scene.attrs)
+            # creates something that behaves like a PIL.Image, but is actually
+            # a trollimage.xrimage.XRImage (image with xarray for underlying
+            # storage)
+            return get_enhanced_image(da_channels_resampled)
 
         # da_tile_channels = self.resample(da_scene, N=resampling_N)
         # return create_true_color_img(da_channels=da_tile_channels)
