@@ -69,6 +69,8 @@ class Goes16AWS:
         16:"'CO2' longwave infrared"
     }
 
+    URL = "https://registry.opendata.aws/noaa-goes/"
+
     def __init__(self):
         # to access a public bucket we must indicate to boto not to sign requests
         # (https://stackoverflow.com/a/34866092)
