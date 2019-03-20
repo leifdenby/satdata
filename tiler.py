@@ -21,6 +21,12 @@ from xesmf.backend import (esmf_grid, add_corner,
 
 import tempfile
 
+try:
+    from . import satpy_rgb
+    HAS_SATPY = True
+except ImportError:
+    HAS_SATPY = False
+
 class SilentRegridder(xesmf.Regridder):
     def _write_weight_file(self):
         if os.path.exists(self.filename):
@@ -141,7 +147,8 @@ class Tile():
             da=da, box=self.get_bounds().T, pad_pct=pad_pct
         )
 
-    def resample(self, da, N, method='bilinear', crop_pad_pct=0.1):
+    def resample(self, da, N, method='bilinear', crop_pad_pct=0.1,
+                 keep_attrs=False):
         """
         Resample a xarray DataArray onto this tile with grid made of NxN points
         """
@@ -185,7 +192,38 @@ class Tile():
         da_resampled['x'] = new_grid.x
         da_resampled['y'] = new_grid.y
 
+        if keep_attrs:
+            da_resampled.attrs.update(da.attrs)
+
         return da_resampled
+
+    def get_pyresample_area_def(self, N):
+        """
+        When using satpy scenes we're better off using pyresample instead of
+        xesmf since it appears faster (I think because it uses dask)
+        """
+        from pyresample import geometry
+
+        L = self.size
+        area_id = 'tile'
+        description = 'Tile local cartesian grid'
+        proj_id = 'ease_tile'
+        x_size = N
+        y_size = N
+        area_extent = (-L, -L, L, L)
+        proj_dict = {
+            'a': 6371228.0,
+            'units': 'm',
+            'proj': 'laea', 
+            'lon_0': self.lon0,
+            'lat_0': self.lat0
+        }
+        area_def = geometry.AreaDefinition(
+            area_id, description, proj_id, proj_dict, x_size, y_size,
+            area_extent
+        )
+
+        return area_def
 
     def create_true_color_img(self, da_scene, resampling_N):
         if isinstance(da_scene, list):
@@ -194,20 +232,15 @@ class Tile():
             ]
             return create_true_color_img(das_channels=das_channels_resampled)
         else:
-            from satpy.writers import get_enhanced_image
-            da_channels_resampled = self.resample(da_scene, N=resampling_N)
+            if not HAS_SATPY:
+                raise Exception("Must have satpy installed to be able to "
+                                "RGB composites with satpy")
 
-            # setting these attrs makes the composite look the same (!) :D,
-            # just rotated for some reason... (but that shouldn't matter for
-            # training)
-            da_channels_resampled.attrs.update(da_scene.attrs)
-            # creates something that behaves like a PIL.Image, but is actually
-            # a trollimage.xrimage.XRImage (image with xarray for underlying
-            # storage)
-            return get_enhanced_image(da_channels_resampled)
+            da_tile_rgb = self.resample(da=da_scene, N=resampling_N,
+                                        keep_attrs=True)
 
-        # da_tile_channels = self.resample(da_scene, N=resampling_N)
-        # return create_true_color_img(da_channels=da_tile_channels)
+            return satpy_rgb.rgb_da_to_img(da_tile_rgb)
+
 
     def serialize_props(self):
         return dict(

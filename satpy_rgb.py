@@ -144,3 +144,7 @@ def get_rgb_composite_in_bbox(scene_fns, data_path, bbox_domain):
     da = xr.open_dataarray(path_nc)
     da.attrs['crs'] = _create_ccrs_from_yaml(fn_meta=path_meta)
     return da
+
+
+def rgb_da_to_img(da):
+    return satpy.writers.get_enhanced_image(da)
