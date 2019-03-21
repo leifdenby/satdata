@@ -17,6 +17,17 @@ def num_cpus()->int:
 _default_cpus = min(16, num_cpus())
 defaults = SimpleNamespace(cpus=_default_cpus, cmap='viridis')
 
+# def parallel(func, arr:Collection, max_workers:int=None):
+    # "Call `func` on every element of `arr` in parallel using `max_workers`."
+    # max_workers = ifnone(max_workers, defaults.cpus)
+    # if max_workers<2: _ = [func(o,i) for i,o in enumerate(arr)]
+    # else:
+        # with ProcessPoolExecutor(max_workers=max_workers) as ex:
+            # futures = [ex.submit(func,o,i) for i,o in enumerate(arr)]
+    # for f in progress_bar(concurrent.futures.as_completed(futures), total=len(arr)):
+        # pass
+        # yield f.result()
+
 def parallel(func, arr:Collection, max_workers:int=None):
     "Call `func` on every element of `arr` in parallel using `max_workers`."
     max_workers = ifnone(max_workers, defaults.cpus)
@@ -24,5 +35,4 @@ def parallel(func, arr:Collection, max_workers:int=None):
     else:
         with ProcessPoolExecutor(max_workers=max_workers) as ex:
             futures = [ex.submit(func,o,i) for i,o in enumerate(arr)]
-    for f in progress_bar(concurrent.futures.as_completed(futures), total=len(arr)):
-        f.result()
+            for f in progress_bar(concurrent.futures.as_completed(futures), total=len(arr)): pass

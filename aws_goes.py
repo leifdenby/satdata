@@ -69,6 +69,15 @@ class Goes16AWS:
         16:"'CO2' longwave infrared"
     }
 
+    URL = "https://registry.opendata.aws/noaa-goes/"
+
+    KEY_REGEX = re.compile(".*/OR_ABI-L1b-RadF-"
+                          "M3C(?P<channel>\d+)_"
+                          "G16_s(?P<start_time>\d+)_"
+                          "e(?P<end_time>\d+)_"
+                          "c(?P<file_creation_time>\d+)"
+                          "\.nc")
+
     def __init__(self):
         # to access a public bucket we must indicate to boto not to sign requests
         # (https://stackoverflow.com/a/34866092)
@@ -115,6 +124,14 @@ class Goes16AWS:
         ))
         return p
 
+    @classmethod
+    def parse_key(cls, k):
+        match = cls.KEY_REGEX.match(k)
+        if match:
+            return match.groupdict()
+        else:
+            return None
+
     @staticmethod
     def parse_timestamp(s):
         """
@@ -159,7 +176,7 @@ class Goes16AWS:
         def is_within_dt_max_tol(key):
             fn = key.split('/')[-1]
             str_times = re.findall(r's(\d+)_e(\d+)', fn)[0]
-            t_start, t_end = map(self._parse_timestamp, str_times)
+            t_start, t_end = map(self.parse_timestamp, str_times)
 
             if (t_start - time) > dt_max:
                 return False

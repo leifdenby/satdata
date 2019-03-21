@@ -21,6 +21,12 @@ from xesmf.backend import (esmf_grid, add_corner,
 
 import tempfile
 
+try:
+    from . import satpy_rgb
+    HAS_SATPY = True
+except ImportError:
+    HAS_SATPY = False
+
 class SilentRegridder(xesmf.Regridder):
     def _write_weight_file(self):
         if os.path.exists(self.filename):
@@ -32,6 +38,32 @@ class SilentRegridder(xesmf.Regridder):
         regrid = esmf_regrid_build(self._grid_in, self._grid_out, self.method,
                                    filename=self.filename)
         esmf_regrid_finalize(regrid) # only need weights, not regrid object
+
+
+def crop_field_to_latlon_box(da, box, pad_pct=0.1):
+    xs, ys, _ = da.crs.transform_points(ccrs.PlateCarree(), *box).T
+
+    x_min, x_max = np.min(xs), np.max(xs)
+    y_min, y_max = np.min(ys), np.max(ys)
+    lx = x_max - x_min
+    ly = y_max - y_min
+
+    x_min -= pad_pct*lx
+    y_min -= pad_pct*ly
+    x_max += pad_pct*lx
+    y_max += pad_pct*ly
+
+    if da.x[0] > da.x[-1]:
+        x_slice = slice(x_max, x_min)
+    else:
+        x_slice = slice(x_min, x_max)
+
+    if da.y[0] > da.y[-1]:
+        y_slice = slice(y_max, y_min)
+    else:
+        y_slice = slice(y_min, y_max)
+
+    return da.sel(x=x_slice, y=y_slice)
 
 
 class Tile():
@@ -111,32 +143,12 @@ class Tile():
         return ds
 
     def crop_field(self, da, pad_pct=0.1):
-        xs, ys, _ = da.crs.transform_points(ccrs.PlateCarree(),
-                                            *self.get_bounds().T
-                                           ).T
-        x_min, x_max = np.min(xs), np.max(xs)
-        y_min, y_max = np.min(ys), np.max(ys)
-        lx = x_max - x_min
-        ly = y_max - y_min
+        return crop_field_to_latlon_box(
+            da=da, box=self.get_bounds().T, pad_pct=pad_pct
+        )
 
-        x_min -= pad_pct*lx
-        y_min -= pad_pct*ly
-        x_max += pad_pct*lx
-        y_max += pad_pct*ly
-
-        if da.x[0] > da.x[-1]:
-            x_slice = slice(x_max, x_min)
-        else:
-            x_slice = slice(x_min, x_max)
-
-        if da.y[0] > da.y[-1]:
-            y_slice = slice(y_max, y_min)
-        else:
-            y_slice = slice(y_min, y_max)
-
-        return da.sel(x=x_slice, y=y_slice)
-
-    def resample(self, da, N, method='bilinear', crop_pad_pct=0.1):
+    def resample(self, da, N, method='bilinear', crop_pad_pct=0.1,
+                 keep_attrs=False):
         """
         Resample a xarray DataArray onto this tile with grid made of NxN points
         """
@@ -180,12 +192,55 @@ class Tile():
         da_resampled['x'] = new_grid.x
         da_resampled['y'] = new_grid.y
 
+        if keep_attrs:
+            da_resampled.attrs.update(da.attrs)
+
         return da_resampled
 
-    def create_true_color_img(self, das_channels, resampling_N):
-        das_channels_resampled = [self.resample(da, N=resampling_N)
-                                  for da in das_channels]
-        return create_true_color_img(das_channels=das_channels_resampled)
+    def get_pyresample_area_def(self, N):
+        """
+        When using satpy scenes we're better off using pyresample instead of
+        xesmf since it appears faster (I think because it uses dask)
+        """
+        from pyresample import geometry
+
+        L = self.size
+        area_id = 'tile'
+        description = 'Tile local cartesian grid'
+        proj_id = 'ease_tile'
+        x_size = N
+        y_size = N
+        area_extent = (-L, -L, L, L)
+        proj_dict = {
+            'a': 6371228.0,
+            'units': 'm',
+            'proj': 'laea', 
+            'lon_0': self.lon0,
+            'lat_0': self.lat0
+        }
+        area_def = geometry.AreaDefinition(
+            area_id, description, proj_id, proj_dict, x_size, y_size,
+            area_extent
+        )
+
+        return area_def
+
+    def create_true_color_img(self, da_scene, resampling_N):
+        if isinstance(da_scene, list):
+            das_channels_resampled = [
+                self.resample(da, N=resampling_N) for da in da_scene
+            ]
+            return create_true_color_img(das_channels=das_channels_resampled)
+        else:
+            if not HAS_SATPY:
+                raise Exception("Must have satpy installed to be able to "
+                                "RGB composites with satpy")
+
+            da_tile_rgb = self.resample(da=da_scene, N=resampling_N,
+                                        keep_attrs=True)
+
+            return satpy_rgb.rgb_da_to_img(da_tile_rgb)
+
 
     def serialize_props(self):
         return dict(
@@ -194,8 +249,8 @@ class Tile():
             size=float(self.size),
         )
 
-def triplet_generator(target_channels, tile_size, tiling_bbox, tile_N,
-                      distant_channels=None, neigh_dist_scaling=1.0,
+def triplet_generator(da_target_scene, tile_size, tiling_bbox, tile_N,
+                      da_distant_scene=None, neigh_dist_scaling=1.0,
                       distant_dist_scaling=10.):
     # generate (lat, lon) locations inside tiling_box
 
@@ -237,7 +292,7 @@ def triplet_generator(target_channels, tile_size, tiling_bbox, tile_N,
     anchor_loc = _generate_latlon()
     neighbor_loc = _perturb_loc(anchor_loc, scaling=neigh_dist_scaling)
 
-    if distant_channels is None:
+    if da_distant_scene is None:
         while True:
             dist_loc = _perturb_loc(anchor_loc, scaling=distant_dist_scaling)
             if _point_valid(dist_loc):
@@ -252,13 +307,16 @@ def triplet_generator(target_channels, tile_size, tiling_bbox, tile_N,
         for (lon, lat) in locs
     ]
 
-    channel_sets = [target_channels, target_channels]
-    if distant_channels is None:
-        channel_sets.append(target_channels)
+    # create a list of the three scenes used for creating triplets
+    da_scene_set = [da_target_scene, da_target_scene]
+    if da_distant_scene is None:
+        da_scene_set.append(da_target_scene)
     else:
-        channel_sets.append(distant_channels)
+        da_scene_set.append(da_distant_scene)
 
+    # on each of the three scenes use the three tiles to create a resampled
+    # image
     return [
-        (tile, tile.create_true_color_img(das_channels, resampling_N=tile_N))
-        for (tile, das_channels) in zip(tiles, channel_sets)
+        (tile, tile.create_true_color_img(da_scene, resampling_N=tile_N))
+        for (tile, da_scene) in zip(tiles, da_scene_set)
     ]
