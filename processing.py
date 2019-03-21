@@ -56,7 +56,6 @@ def _load_channels_old(fns, cli):
         # coordinates are scaled by satellite height in image
         ds.coords['x'] = ds.x*gp.perspective_point_height
         ds.coords['y'] = ds.y*gp.perspective_point_height
-
         return ds
 
     def _load_file(fn):
@@ -78,7 +77,7 @@ def _load_channels_old(fns, cli):
     return da_scene
 
 
-def load_data_for_rgb(datasets_filenames, cli, bbox_domain, path_composites,
+def load_data_for_rgb(datasets_filenames, cli, bbox_extent, path_composites,
                       use_old=True):
     REQUIRED_CHANNELS = [1,2,3]
     def fn_is_required(fn):
@@ -103,7 +102,7 @@ def load_data_for_rgb(datasets_filenames, cli, bbox_domain, path_composites,
 
             da_rgb_domain = satpy_rgb.get_rgb_composite_in_bbox(
                 scene_fns=fns, data_path=path_composites,
-                bbox_domain=np.array(bbox_domain)
+                bbox_extent=bbox_extent
             )
             das.append(da_rgb_domain)
 
@@ -112,7 +111,7 @@ def load_data_for_rgb(datasets_filenames, cli, bbox_domain, path_composites,
 TRIPLET_FN_FORMAT = "{:05d}_{}.png"
 
 def generate_tile_triplets(scenes, tiling_bbox, tile_N, tile_size, output_dir,
-                           N_triplets, max_workers=4):
+                           N_triplets, max_workers=4, neighbor_distant_frac=0.8):
     if len(scenes) < 2:
         raise Exception("Need at least two scenes")
 
@@ -143,6 +142,7 @@ def generate_tile_triplets(scenes, tiling_bbox, tile_N, tile_size, output_dir,
             tile_size=tile_size,
             tile_N=tile_N,
             tiling_bbox=tiling_bbox,
+            neigh_dist_scaling=neighbor_distant_frac
         )
 
         tiles, imgs = zip(*tiles_and_imgs)

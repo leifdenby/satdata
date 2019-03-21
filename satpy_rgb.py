@@ -2,8 +2,9 @@ import satpy
 import yaml
 import cartopy.crs as ccrs
 import xarray as xr
+import numpy as np
 
-from . import tiler, Goes16AWS
+from . import tiler, Goes16AWS, bbox
 
 
 def _cleanup_composite_da_attrs(da_composite):
@@ -102,36 +103,40 @@ def _load_rgb_files_and_get_composite_da(scene_fns):
     return da_truecolor
 
 
-def _make_composite_filename(scene_fns, bbox_domain):
+def _make_composite_filename(scene_fns, bbox_extent):
     key_attrs = Goes16AWS.parse_key(scene_fns[0])
     t_start_str, t_end_str = key_attrs['start_time'], key_attrs['end_time']
 
-    lon_min, lat_min = bbox_domain[0]
-    lon_max, lat_max = bbox_domain[1]
+    lon_min, lat_min = bbox_extent[0]
+    lon_max, lat_max = bbox_extent[1]
 
     return "rgb_s{}_e{}_{}N_{}W_{}S_{}E.nc".format(
         t_start_str, t_end_str, lat_max, lon_min, lat_min, lon_max
     )
 
 
-def get_rgb_composite_in_bbox(scene_fns, data_path, bbox_domain):
+def get_rgb_composite_in_bbox(scene_fns, data_path, bbox_extent,
+                              bbox_pad_pct=0.05):
     """
     scene_fns: filenames for the three files containing the channels needed for
     GOES-16 composites
 
-    bbox_domain = (pt_SW, pt_NE)
+    bbox_extent = (pt_SW, pt_NE)
     """
     fn_nc = _make_composite_filename(scene_fns=scene_fns,
-                                     bbox_domain=bbox_domain)
+                                     bbox_extent=bbox_extent)
 
     path_nc = data_path/fn_nc
     path_meta = data_path/fn_nc.replace('.nc', '.meta.yaml')
+
+    bbox_domain = bbox.LatLonBox(bbox_extent)
 
     if not path_nc.exists():
         da_truecolor = _load_rgb_files_and_get_composite_da(scene_fns=scene_fns)
 
         da_truecolor_domain = tiler.crop_field_to_latlon_box(
-            da=da_truecolor, box=bbox_domain.T
+            da=da_truecolor, box=np.array(bbox_domain.get_bounds()).T,
+            pad_pct=bbox_pad_pct
         )
 
         da_truecolor_domain = _cleanup_composite_da_attrs(da_truecolor_domain)
@@ -143,6 +148,10 @@ def get_rgb_composite_in_bbox(scene_fns, data_path, bbox_domain):
 
     da = xr.open_dataarray(path_nc)
     da.attrs['crs'] = _create_ccrs_from_yaml(fn_meta=path_meta)
+
+    if not 'source_files' in da.attrs:
+        da.attrs['source_files'] = scene_fns
+
     return da
 
 

@@ -67,6 +67,9 @@ def crop_field_to_latlon_box(da, box, pad_pct=0.1):
 
 
 class Tile():
+    class TileBoundsOutsideOfInputException(Exception):
+        pass
+
     def __init__(self, lat0, lon0, size):
         self.lat0 = lat0
         self.lon0 = lon0
@@ -152,17 +155,20 @@ class Tile():
         """
         Resample a xarray DataArray onto this tile with grid made of NxN points
         """
-        da = self.crop_field(da=da, pad_pct=crop_pad_pct)
+        da_cropped = self.crop_field(da=da, pad_pct=crop_pad_pct)
 
-        old_grid = xr.Dataset(coords=da.coords)
+        if da_cropped.x.count() == 0 or da_cropped.y.count() == 0:
+            raise self.TileBoundsOutsideOfInputException
 
-        if not hasattr(da, 'crs'):
+        old_grid = xr.Dataset(coords=da_cropped.coords)
+
+        if not hasattr(da_cropped, 'crs'):
             raise Exception("The provided DataArray doesn't have a "
                             "projection provided. Please set the `crs` "
                             "attribute to contain a cartopy projection")
 
         latlon_old = ccrs.PlateCarree().transform_points(
-            da.crs, *np.meshgrid(da.x.values, da.y.values),
+            da_cropped.crs, *np.meshgrid(da_cropped.x.values, da_cropped.y.values),
         )[:,:,:2]
 
         old_grid['lat'] = (('y', 'x'), latlon_old[...,1])
@@ -170,7 +176,7 @@ class Tile():
 
         new_grid = self.get_grid(N=N)
 
-        Nx_in, Ny_in = da.x.shape[0], da.y.shape[0]
+        Nx_in, Ny_in = da_cropped.x.shape[0], da_cropped.y.shape[0]
         Nx_out, Ny_out = N, N
 
         regridder_weights_fn = "{method}_{Ny_in}x{Nx_in}_{Ny_out}x{Nx_out}"\
@@ -183,12 +189,17 @@ class Tile():
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            regridder = SilentRegridder(filename=regridder_weights_fn,
-                reuse_weights=False, ds_in=old_grid, ds_out=new_grid,
-                method=method,
-            )
+            try:
+                regridder = SilentRegridder(filename=regridder_weights_fn,
+                    reuse_weights=False, ds_in=old_grid, ds_out=new_grid,
+                    method=method,
+                )
+            except ValueError:
+                raise self.TileBoundsOutsideOfInputException("something went wrong"
+                        " during regridding :(")
 
-        da_resampled = regridder(da)
+        da_resampled = regridder(da_cropped)
+
         da_resampled['x'] = new_grid.x
         da_resampled['y'] = new_grid.y
 
@@ -254,16 +265,19 @@ def triplet_generator(da_target_scene, tile_size, tiling_bbox, tile_N,
                       distant_dist_scaling=10.):
     # generate (lat, lon) locations inside tiling_box
 
-    # XXX: this is a really poor approximation to degrees to meters, should use
-    # Haversine formula or something like it
-    deg_to_m = 100e3
-    tile_size_deg = tile_size/deg_to_m
+    def _est_tile_size_deg(loc):
+        _, lat0 = loc
+        R = 6371e3  # Earth's radius in m
+        tile_size_deg = np.rad2deg(tile_size/(R*np.cos(np.deg2rad(lat0))))
+        return tile_size_deg
 
     def _point_valid(lon, lat):
+        h_ts = 0.5*_est_tile_size_deg(loc=(lon, lat))
+
         (lon_min, lat_min), (lon_max, lat_max) = tiling_bbox
         try:
-            assert lon_min <= lon <= lon_max
-            assert lat_min <= lat <= lat_max
+            assert lon_min + h_ts <= lon <= lon_max - h_ts
+            assert lat_min + h_ts <= lat <= lat_max - h_ts
             return True
         except:
             return False
@@ -275,18 +289,26 @@ def triplet_generator(da_target_scene, tile_size, tiling_bbox, tile_N,
         lon = lon_min + (lon_max - lon_min)*np.random.random()
 
         if not _point_valid(lon, lat):
-            raise Exception(lon, lat)
+            return _generate_latlon()
         else:
             return (lon, lat)
 
     def _perturb_loc(loc, scaling):
         theta = 2*pi*np.random.random()
+
+        tile_size_deg = _est_tile_size_deg(loc=loc)
+
         r = scaling*tile_size_deg*np.random.normal(loc=1.0, scale=0.1)
 
         dlon = r*np.cos(theta)
         dlat = r*np.sin(theta)
 
-        return (loc[0] + dlon, loc[1] + dlat)
+        new_loc = (loc[0] + dlon, loc[1] + dlat)
+        if _point_valid(lon=new_loc[0], lat=new_loc[1]):
+            return new_loc
+        else:
+            return _perturb_loc(loc=loc, scaling=scaling)
+
 
 
     anchor_loc = _generate_latlon()
@@ -316,7 +338,13 @@ def triplet_generator(da_target_scene, tile_size, tiling_bbox, tile_N,
 
     # on each of the three scenes use the three tiles to create a resampled
     # image
-    return [
-        (tile, tile.create_true_color_img(da_scene, resampling_N=tile_N))
-        for (tile, da_scene) in zip(tiles, da_scene_set)
-    ]
+    try:
+        return [
+            (tile, tile.create_true_color_img(da_scene, resampling_N=tile_N))
+            for (tile, da_scene) in zip(tiles, da_scene_set)
+        ]
+    except Tile.TileBoundsOutsideOfInputException:
+        return triplet_generator(
+            da_target_scene, tile_size, tiling_bbox, tile_N, da_distant_scene,
+            neigh_dist_scaling, distant_dist_scaling
+        )
