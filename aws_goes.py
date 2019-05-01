@@ -11,6 +11,7 @@ import datetime
 import os
 import subprocess
 import re
+from pathlib import Path
 
 import boto3
 from botocore import UNSIGNED
@@ -78,14 +79,18 @@ class Goes16AWS:
                           "c(?P<file_creation_time>\d+)"
                           "\.nc")
 
-    def __init__(self):
-        # to access a public bucket we must indicate to boto not to sign requests
-        # (https://stackoverflow.com/a/34866092)
-        self.boto_config = Config(signature_version=UNSIGNED)
-        self.s3client = boto3.client('s3',
-            region_name=self.BUCKET_REGION,
-            config=self.boto_config
-        )
+    def __init__(self, local_storage_dir='goes16', offline=False):
+        self.offline = offline
+        self.local_storage_dir = Path(local_storage_dir)
+
+        if not offline:
+            # to access a public bucket we must indicate to boto not to sign requests
+            # (https://stackoverflow.com/a/34866092)
+            self.boto_config = Config(signature_version=UNSIGNED)
+            self.s3client = boto3.client('s3',
+                region_name=self.BUCKET_REGION,
+                config=self.boto_config
+            )
 
     def make_prefix(self, t, product='Rad', sensor="ABI", region="C",
                     sensor_mode=3, channel=2):
@@ -159,19 +164,28 @@ class Goes16AWS:
         if debug:
             print("Quering prefix `{}`".format(prefix))
 
-        req = self.s3client.list_objects(
-            Bucket=self.BUCKET_NAME, Prefix=prefix
-        )
+        if not self.offline:
+            req = self.s3client.list_objects(
+                Bucket=self.BUCKET_NAME, Prefix=prefix
+            )
 
-        if not 'Contents' in req:
-            return []
+            if not 'Contents' in req:
+                return []
 
-        objs = req['Contents']
+            objs = req['Contents']
 
-        if not include_in_glacier_storage:
-            objs = filter(lambda o: o['StorageClass'] != "GLACIER", objs)
+            if not include_in_glacier_storage:
+                objs = filter(lambda o: o['StorageClass'] != "GLACIER", objs)
 
-        keys = list(map(lambda o: o['Key'], objs))
+            keys = list(map(lambda o: o['Key'], objs))
+        else:
+            if not self.local_storage_dir.exists():
+                raise Exception("There's currently no directory `{}` for "
+                                "for local storage and so offline queries "
+                                "can't be done.".format(self.local_storage_dir))
+            else:
+                fps = self.local_storage_dir.glob("{}*".format(prefix))
+                keys = [str(fp.relative_to(self.local_storage_dir)) for fp in fps]
 
         def is_within_dt_max_tol(key):
             fn = key.split('/')[-1]
@@ -190,17 +204,21 @@ class Goes16AWS:
         return keys
 
 
-    def download(self, key, output_dir='goes16', overwrite=False, debug=False):
-
+    def download(self, key, overwrite=False, debug=False):
         if not type(key) == list:
             keys = [key,]
         else:
             keys = key
 
+        if self.offline:
+            # we'll just fake the download for convience by returning the paths
+            # to the already downloaded files
+            return [self.local_storage_dir.joinpath(k) for k in keys]
+
         files = []
 
         for key in tqdm(keys):
-            fn_out = os.path.join(output_dir, key)
+            fn_out = os.path.join(self.local_storage_dir, key)
 
             dir = os.path.dirname(fn_out)
             if not os.path.exists(dir):
