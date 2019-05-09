@@ -218,7 +218,7 @@ class Goes16AWS:
         if self.offline:
             # we'll just fake the download for convience by returning the paths
             # to the already downloaded files
-            return [self.local_storage_dir.joinpath(k) for k in keys]
+            return [str(self.local_storage_dir.joinpath(k)) for k in keys]
 
         files = []
 
