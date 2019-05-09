@@ -11,7 +11,7 @@ import time
 import yaml
 
 from . import tiler
-from .multiprocessing import parallel
+from .aws_goes import Goes16AWS
 
 try:
     from . import satpy_rgb
@@ -20,19 +20,49 @@ except ImportError:
     HAS_SATPY = False
 
 
-def find_datasets_keys(times, dt_max, cli, channels=[1,2,3]):
+def find_datasets_keys(times, dt_max, cli, channels=[1,2,3], debug=False):
     """
     query API to find datasets with each required channel
     """
     def get_channel_file(t, channel):
-        return cli.query(time=t, region='F', debug=False, channel=channel,
+        return cli.query(time=t, region='F', debug=debug, channel=channel,
                          dt_max=dt_max)
 
     filenames = []
     for t in times:
+        # NOTE: if a key isn't returned for all channels one of the queries
+        # will return an empty list which will make zip create an empty list
+        # and discard all the channels that are available
         filenames += zip(*[get_channel_file(t=t, channel=c) for c in channels])
 
     return filenames
+
+import random
+
+def pick_one_time_per_date_for_study(datasets_filenames,
+                                     ensure_each_day_has_training_data=False):
+    dataset_files_by_date = {}
+
+    for fns in datasets_filenames:
+        date = Goes16AWS.parse_key(str(fns[0]), parse_times=True)['start_time'].date()
+        dataset_files_by_date.setdefault(date, []).append(fns)
+
+    def _split_date(datasets_filenames):
+        l = list(datasets_filenames)
+        if ensure_each_day_has_training_data and len(l) < 2:
+            raise Exception("There is only one dataset for the given date "
+                            "(`{}`), is this a mistake?".format(l[0][0]))
+        random.shuffle(l)
+        return l[:1], l[1:]
+
+    datasets_study = []
+    datasets_train = []
+    for d in dataset_files_by_date.keys():
+        l_study_d, l_train_d = _split_date(dataset_files_by_date[d])
+        datasets_study += l_study_d
+        datasets_train += l_train_d
+
+    return dict(train=datasets_train, study=datasets_study)
 
 
 class FakeScene(list):
