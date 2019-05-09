@@ -130,10 +130,15 @@ class Goes16AWS:
         return p
 
     @classmethod
-    def parse_key(cls, k):
+    def parse_key(cls, k, parse_times=False):
         match = cls.KEY_REGEX.match(k)
         if match:
-            return match.groupdict()
+            data = match.groupdict()
+            if parse_times:
+                for (k, v) in data.items():
+                    if k.endswith('_time'):
+                        data[k] = cls.parse_timestamp(data[k])
+            return data
         else:
             return None
 
