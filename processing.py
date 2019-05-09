@@ -70,23 +70,23 @@ class FakeScene(list):
         super().__init__(*args, **kwargs)
         self.source_files = source_files
 
+def set_projection_attribute_and_scale_coords(ds):
+    gp = ds.goes_imager_projection
+
+    globe = ccrs.Globe(ellipse='sphere', semimajor_axis=gp.semi_major_axis,
+                       semiminor_axis=gp.semi_minor_axis)
+    img_proj = ccrs.Geostationary(satellite_height=gp.perspective_point_height,
+                                  central_longitude=gp.longitude_of_projection_origin,
+                                  globe=globe)
+    ds.attrs['crs'] = img_proj
+
+    # coordinates are scaled by satellite height in image
+    ds.coords['x'] = ds.x*gp.perspective_point_height
+    ds.coords['y'] = ds.y*gp.perspective_point_height
+    return ds
+
 def _load_channels_old(fns, cli):
     CHUNK_SIZE = 4096 # satpy uses this chunksize, so let's do the same
-
-    def set_projection_attribute_and_scale_coords(ds):
-        gp = ds.goes_imager_projection
-
-        globe = ccrs.Globe(ellipse='sphere', semimajor_axis=gp.semi_major_axis,
-                           semiminor_axis=gp.semi_minor_axis)
-        img_proj = ccrs.Geostationary(satellite_height=gp.perspective_point_height,
-                                      central_longitude=gp.longitude_of_projection_origin,
-                                      globe=globe)
-        ds.attrs['crs'] = img_proj
-
-        # coordinates are scaled by satellite height in image
-        ds.coords['x'] = ds.x*gp.perspective_point_height
-        ds.coords['y'] = ds.y*gp.perspective_point_height
-        return ds
 
     def _load_file(fn):
         ds = xr.open_dataset(fn, chunks=dict(x=CHUNK_SIZE, y=CHUNK_SIZE))
