@@ -4,7 +4,7 @@ version: v1.0
 # Name your pipeline. In case you connect multiple pipelines with promotions,
 # the name will help you differentiate between, for example, a CI build phase
 # and delivery phases.
-name: Semaphore Python / Django Example Pipeline
+name: satpy pipeline
 
 # An agent defines the environment in which your code runs.
 # It is a combination of one of available machine types and operating
@@ -74,9 +74,6 @@ blocks:
           # cache restore uses relative paths always, so we need to move things
           # ourselves. This might fail though so we ensure exitcode=0
           - mv home/semaphore/miniconda/ $HOME/miniconda || true
-          # the cache restore appears to put things in slightly the wrong
-          # place, not using relative paths
-          - ln -s $HOME/home/semaphore/miniconda $HOME/miniconda
           - export PATH=$HOME/miniconda/bin:$PATH
           - source activate satdata
           - pip install pytest
