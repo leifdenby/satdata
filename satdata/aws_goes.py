@@ -12,6 +12,7 @@ import os
 import subprocess
 import re
 from pathlib import Path
+import warnings
 
 import boto3
 from botocore import UNSIGNED
@@ -49,7 +50,18 @@ class Goes16AWS:
         M2="mesoscale region 2 (east)",
     )
 
-    SENSOR_MODES = {3: "scan operation", 4: "full disk every 5min"}
+    SENSOR_MODES = {
+        3: "flex mode full disk every 15min",
+        4: "continuous full disk every 5min",
+        # mode 6 became default for full disk as of 2019-04-03,
+        # see https://cimss.ssec.wisc.edu/goes/blog/archives/32657,
+        # https://satelliteliaisonblog.com/2019/04/02/mode-6-replaces-mode-3/
+        6: "flex mode full disk every 10min",
+    }
+
+    SENSOR_MODE_3_TO_4_TRANSITION_DATE = datetime.datetime(
+        year=2019, month=4, day=2
+    )
 
     CHANNELS = {
         1:"Blue",
@@ -73,7 +85,7 @@ class Goes16AWS:
     URL = "https://registry.opendata.aws/noaa-goes/"
 
     KEY_REGEX = re.compile(".*/OR_ABI-L1b-RadF-"
-                          "M3C(?P<channel>\d+)_"
+                          "M(?P<sensor_mode>\d)C(?P<channel>\d+)_"
                           "G16_s(?P<start_time>\d+)_"
                           "e(?P<end_time>\d+)_"
                           "c(?P<file_creation_time>\d+)"
@@ -92,9 +104,27 @@ class Goes16AWS:
                 config=self.boto_config
             )
 
+    def _check_sensor_mode(self, sensor_mode, t):
+        if sensor_mode == 6 and t <= self.SENSOR_MODE_3_TO_4_TRANSITION_DATE:
+            warnings.warn("Sensor mode 6 wasn't available before {},"
+                          " switching to mode 3".format(
+                            str(self.SENSOR_MODE_3_TO_4_TRANSITION_DATE)
+                          ))
+            return 3
+        elif sensor_mode == 3 and t > self.SENSOR_MODE_3_TO_4_TRANSITION_DATE:
+            warnings.warn("Sensor mode 3 isn't available after {},"
+                          " switching to mode 6".format(
+                            str(self.SENSOR_MODE_3_TO_4_TRANSITION_DATE)
+                          ))
+            return 6
+        else:
+            return sensor_mode
+
     def make_prefix(self, t, product='Rad', sensor="ABI", region="C",
-                    sensor_mode=3, channel=2):
+                    sensor_mode=6, channel=2):
         level = self.PRODUCT_LEVEL_MAP.get(product)
+
+        sensor_mode = self._check_sensor_mode(sensor_mode, t)
 
         if level is None:
             raise NotImplementedError("Level for {} unknown".format(product))
@@ -156,7 +186,7 @@ class Goes16AWS:
         return datetime.datetime.strptime(s[:-1], "%Y%j%H%M%S")
 
     def query(self, time, dt_max=datetime.timedelta(hours=4), sensor="ABI",
-              product="Rad", region="C", channel=2, sensor_mode=3, 
+              product="Rad", region="C", channel=2, sensor_mode=6, 
               include_in_glacier_storage=False, debug=False):
         prefix = self.make_prefix(
             t=time,
