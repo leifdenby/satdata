@@ -1,0 +1,23 @@
+name: satdata
+
+channels:
+  - pytorch
+  - fastai
+  - defaults
+  - conda-forge
+dependencies:
+  - pip=19.0.1
+  - python=3.7
+  - boto3
+  - cartopy
+  - esmpy
+  - jupyter
+  - matplotlib
+  - netcdf4
+  - tqdm
+  - xarray
+  - xesmf
+  - pip:
+    - satpy==0.12.0
+    - esmpy
+    - progressbar
