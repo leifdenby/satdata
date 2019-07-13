@@ -16,3 +16,18 @@ def test_fetch_one_channel():
     fn = cli.download(keys[0])[0]
 
     assert Path(fn).exists()
+
+def test_fetch_one_channel_multi_day():
+    N_HOURS = 6
+    lon_zenith = -45.
+
+    dt_max = datetime.timedelta(hours=N_HOURS)
+    t0 = satdata.calc_nearest_zenith_time_at_loc(lon_zenith)
+    t = t0 - datetime.timedelta(days=8)
+
+    cli = satdata.Goes16AWS()
+
+    keys = cli.query(time=t, dt_max=dt_max, region='F', debug=True)
+
+    # imagery should be available at least every 15 mins in the F region
+    assert len(keys) > (1+2*N_HOURS)*60/15
