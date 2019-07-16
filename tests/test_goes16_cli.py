@@ -11,7 +11,6 @@ def test_fetch_one_channel():
 
     cli = satdata.Goes16AWS()
 
-    print(t)
     keys = cli.query(time=t, region='F', debug=True, dt_max=dt_max)
 
     fn = cli.download(keys[0])[0]
