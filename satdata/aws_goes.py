@@ -228,7 +228,8 @@ class Goes16AWS:
             )
 
             paginator = self.s3client.get_paginator('list_objects')
-            pages = paginator.paginate(Bucket=self.BUCKET_NAME)
+            pages = paginator.paginate(Bucket=self.BUCKET_NAME,
+                                       Prefix=prefix)
             objs = []
             for page in pages:
                 objs += page['Contents']
