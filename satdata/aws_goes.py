@@ -84,7 +84,7 @@ class Goes16AWS:
 
     URL = "https://registry.opendata.aws/noaa-goes/"
 
-    KEY_REGEX = re.compile(".*/OR_ABI-L1b-RadF-"
+    KEY_REGEX = re.compile(".*/OR_ABI-L1b-Rad(?P<region>[\w\d]{1,2})-"
                           "M(?P<sensor_mode>\d)C(?P<channel>\d+)_"
                           "G16_s(?P<start_time>\d+)_"
                           "e(?P<end_time>\d+)_"
@@ -164,6 +164,10 @@ class Goes16AWS:
         match = cls.KEY_REGEX.match(k)
         if match:
             data = match.groupdict()
+
+            for f in ['channel', 'sensor_mode']:
+                data[f] = int(data[f])
+
             if parse_times:
                 for (k, v) in data.items():
                     if k.endswith('_time'):
@@ -188,13 +192,32 @@ class Goes16AWS:
     def query(self, time, dt_max=datetime.timedelta(hours=4), sensor="ABI",
               product="Rad", region="C", channel=2, sensor_mode=6, 
               include_in_glacier_storage=False, debug=False):
-        prefix = self.make_prefix(
-            t=time,
+
+        def _find_common_prefix(p1, p2):
+            parts = []
+
+            for (l1, l2) in zip(p1, p2):
+                if l1 == l2:
+                    parts.append(l1)
+                else:
+                    break
+            return "".join(parts)
+
+        prefix_min = self.make_prefix(
+            t=time-dt_max,
             product=product,
             region=region,
             channel=channel,
             sensor_mode=sensor_mode
         )
+        prefix_max = self.make_prefix(
+            t=time+dt_max,
+            product=product,
+            region=region,
+            channel=channel,
+            sensor_mode=sensor_mode
+        )
+        prefix = _find_common_prefix(prefix_min, prefix_max)
 
         if debug:
             print("Quering prefix `{}`".format(prefix))
@@ -204,10 +227,16 @@ class Goes16AWS:
                 Bucket=self.BUCKET_NAME, Prefix=prefix
             )
 
-            if not 'Contents' in req:
-                return []
+            paginator = self.s3client.get_paginator('list_objects')
+            pages = paginator.paginate(Bucket=self.BUCKET_NAME)
+            objs = []
+            for page in pages:
+                objs += page['Contents']
 
-            objs = req['Contents']
+            # if not 'Contents' in req:
+                # return []
+
+            # objs = req['Contents']
 
             if not include_in_glacier_storage:
                 objs = filter(lambda o: o['StorageClass'] != "GLACIER", objs)
@@ -223,18 +252,20 @@ class Goes16AWS:
                 keys = [str(fp.relative_to(self.local_storage_dir)) for fp in fps]
 
         def is_within_dt_max_tol(key):
-            fn = key.split('/')[-1]
-            str_times = re.findall(r's(\d+)_e(\d+)', fn)[0]
-            t_start, t_end = map(self.parse_timestamp, str_times)
+            key_parts = self.parse_key(key, parse_times=True)
+            t_end = key_parts['end_time']
 
-            if (t_start - time) > dt_max:
-                return False
-            elif (time - t_end) > dt_max:
-                return False
-            else:
-                return True
+            return abs(t_end - time) < dt_max
+
+        def _is_correct_product(key):
+            key_parts = self.parse_key(key)
+            return (key_parts['channel'] == channel and
+                    key_parts['sensor_mode'] == sensor_mode and
+                    key_parts['region'] == region
+                    )
 
         keys = list(filter(is_within_dt_max_tol, keys))
+        keys = list(filter(_is_correct_product, keys))
 
         return keys
 
