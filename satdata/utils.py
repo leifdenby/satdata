@@ -1,8 +1,5 @@
 import datetime
 
-from PIL import Image
-import numpy as np
-
 
 def calc_zenith_time_offset_at_loc(lon):
     T_period = 24*60.*60.  # [s]
