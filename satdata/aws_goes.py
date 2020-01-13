@@ -145,7 +145,7 @@ class Goes16AWS:
             sensor=sensor, product=product, region=region_, level=level,
         )
 
-        p = "{path_prefix}/{year}/{day_of_year:03d}/{hour}/OR_{sensor}-{level}-{product}{region}-M{mode}C{channel:02d}".format(**dict(
+        p = "{path_prefix}/{year}/{day_of_year:03d}/{hour:02d}/OR_{sensor}-{level}-{product}{region}-M{mode}C{channel:02d}".format(**dict(
                path_prefix=path_prefix,
                product=product,
                day_of_year=t.timetuple().tm_yday,
