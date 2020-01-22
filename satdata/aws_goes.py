@@ -232,7 +232,8 @@ class Goes16AWS:
                                        Prefix=prefix)
             objs = []
             for page in pages:
-                objs += page['Contents']
+                if 'Contents' in page:
+                    objs += page['Contents']
 
             # if not 'Contents' in req:
                 # return []
