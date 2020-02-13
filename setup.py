@@ -9,6 +9,6 @@ setup(
     author_email='leifdenby@gmail.com',
     url='https://github.com/leifdenby/satdata',
     classifiers=[],
-    install_requires=["satpy", "xarray", "xesmf", "boto3", "tqdm",
+    install_requires=["satpy", "xarray", "boto3", "tqdm",
                       "progressbar"]
 )
