@@ -14,24 +14,12 @@ import re
 from pathlib import Path
 import warnings
 
+import s3fs
+
 import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
 from tqdm import tqdm
-import progressbar
-
-class S3DownloadWithProgressBar(object):
-    def __init__(self, client, bucket, key, fn_out):
-        self._size = client.head_object(Bucket=bucket, Key=key)['ContentLength']
-        self.pb = progressbar.ProgressBar(maxval=self._size)
-
-        self.pb.start()
-        client.download_file(
-            Bucket=bucket, Key=key, Filename=fn_out, Callback=self
-        )
-
-    def __call__(self, chunk):
-        self.pb.update(self.pb.currval + chunk)
 
 
 class Goes16AWS:
@@ -96,13 +84,7 @@ class Goes16AWS:
         self.local_storage_dir = Path(local_storage_dir)
 
         if not offline:
-            # to access a public bucket we must indicate to boto not to sign requests
-            # (https://stackoverflow.com/a/34866092)
-            self.boto_config = Config(signature_version=UNSIGNED)
-            self.s3client = boto3.client('s3',
-                region_name=self.BUCKET_REGION,
-                config=self.boto_config
-            )
+            self.s3client = s3fs.S3FileSystem(anon=True)
 
     def _check_sensor_mode(self, sensor_mode, t):
         if sensor_mode == 6 and t <= self.SENSOR_MODE_3_TO_4_TRANSITION_DATE:
@@ -193,71 +175,54 @@ class Goes16AWS:
               product="Rad", region="C", channel=2, sensor_mode=6, 
               include_in_glacier_storage=False, debug=False):
 
-        def _find_common_prefix(p1, p2):
-            parts = []
+        t_max = time + dt_max
+        t_min = time - dt_max
 
-            for (l1, l2) in zip(p1, p2):
-                if l1 == l2:
-                    parts.append(l1)
-                else:
-                    break
-            return "".join(parts)
+        # `<Product>/<Year>/<Day of Year>/<Hour>/<Filename>`
+        # last part of prefix path is `hour`, so we list directories by hour
+        # and filter later
 
-        prefix_min = self.make_prefix(
-            t=time-dt_max,
-            product=product,
-            region=region,
-            channel=channel,
-            sensor_mode=sensor_mode
-        )
-        prefix_max = self.make_prefix(
-            t=time+dt_max,
-            product=product,
-            region=region,
-            channel=channel,
-            sensor_mode=sensor_mode
-        )
-        prefix = _find_common_prefix(prefix_min, prefix_max)
-
-        if debug:
-            print("Quering prefix `{}`".format(prefix))
+        def build_paths():
+            t = t_min
+            while t <= t_max + datetime.timedelta(hours=24):
+                # AWS stores files by hour, so we need to query a folder at a
+                # time and then filter later
+                prefix = self.make_prefix(
+                    t=t,
+                    product=product,
+                    region=region,
+                    channel=channel,
+                    sensor_mode=sensor_mode
+                )
+                yield str(Path(prefix).parent)
+                t += datetime.timedelta(hours=1)
 
         if not self.offline:
-            req = self.s3client.list_objects(
-                Bucket=self.BUCKET_NAME, Prefix=prefix
-            )
-
-            paginator = self.s3client.get_paginator('list_objects')
-            pages = paginator.paginate(Bucket=self.BUCKET_NAME,
-                                       Prefix=prefix)
-            objs = []
-            for page in pages:
-                if 'Contents' in page:
-                    objs += page['Contents']
-
-            # if not 'Contents' in req:
-                # return []
-
-            # objs = req['Contents']
-
-            if not include_in_glacier_storage:
-                objs = filter(lambda o: o['StorageClass'] != "GLACIER", objs)
-
-            keys = list(map(lambda o: o['Key'], objs))
+            keys = []
+            for prefix in build_paths():
+                if debug:
+                    print("Quering prefix `{}`".format(prefix))
+                keys += self.s3client.ls(
+                    's3://{b}/{p}'.format(b=self.BUCKET_NAME, p=prefix)
+                )
         else:
             if not self.local_storage_dir.exists():
                 raise Exception("There's currently no directory `{}` for "
                                 "for local storage and so offline queries "
                                 "can't be done.".format(self.local_storage_dir))
             else:
-                fps = self.local_storage_dir.glob("{}*".format(prefix))
-                keys = [str(fp.relative_to(self.local_storage_dir)) for fp in fps]
+                keys = []
+                for prefix in build_paths():
+                    fps = self.local_storage_dir.glob("{}*".format(prefix))
+                    keys += [
+                        str(fp.relative_to(self.local_storage_dir))
+                        for fp in fps
+                    ]
 
         def is_within_dt_max_tol(key):
             key_parts = self.parse_key(key, parse_times=True)
-            t_end = key_parts['end_time']
-
-            return abs(t_end - time) < dt_max
+            t = key_parts['end_time']
+            return t_min < t < t_max
 
         def _is_correct_product(key):
             key_parts = self.parse_key(key)
@@ -296,26 +261,13 @@ class Goes16AWS:
                 if debug:
                     print("File `{}` already exists in `{}`".format(key, fn_out))
             else:
-                S3DownloadWithProgressBar(client=self.s3client,
-                        bucket=self.BUCKET_NAME,
-                        key=key, fn_out=fn_out)
-                # self.s3client.download_file(
-                    # Bucket=self.BUCKET_NAME, Key=key, Filename=fn_out,
-                    # Callback=dl_progress
-                # )
+                if debug:
+                    print("Downloading {} -> {}".format(key, fn_out))
+                self.s3client.get(
+                    's3://{p}'.format(p=key),
+                    fn_out
+                )
 
             files.append(fn_out)
 
         return files
-
-
-def execute(cmd):
-    # https://stackoverflow.com/a/4417735
-    popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
-    for stdout_line in iter(popen.stdout.readline, ""):
-        yield stdout_line
-    popen.stdout.close()
-    return_code = popen.wait()
-
-    if return_code:
-        raise subprocess.CalledProcessError(return_code, cmd)
