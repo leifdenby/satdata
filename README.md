@@ -6,7 +6,7 @@ Simplyfied access to GOES-16 data from python or the command line
 
 For the moment you will need to install directly from github:
 
-    $> pip install git+
+    $> pip install git+https://github.com/leifdenby/satdata?egg=satdata
 
 or clone the repository and use pip to install the local copy
 
@@ -18,8 +18,7 @@ or clone the repository and use pip to install the local copy
 
 You can use the command line interface to query and download files:
 
-    $> python -m satdata.cli --help                                                                                                                                      
-
+    $> python -m satdata.cli --help
 ```
 usage: cli.py [-h] [--dt_max DT_MAX] [--region {F,C,M1,M2}]
               [--channel {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}]
