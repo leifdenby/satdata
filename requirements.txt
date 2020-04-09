@@ -1,5 +1,2 @@
 tqdm
-boto3
-progressbar
-numpy
-shapely
+s3fs
