@@ -180,7 +180,7 @@ class Goes16AWS:
 
         def build_paths():
             t = t_min
-            while t <= t_max + datetime.timedelta(hours=24):
+            while t <= t_max:
                 # AWS stores files by hour, so we need to query a folder at a
                 # time and then filter later
                 prefix = self.make_prefix(
