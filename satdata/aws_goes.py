@@ -9,16 +9,12 @@ C02: is channel or band 02, There will be sixteen bands, 01-16
 """
 import datetime
 import os
-import subprocess
 import re
 from pathlib import Path
 import warnings
 
 import s3fs
 
-import boto3
-from botocore import UNSIGNED
-from botocore.client import Config
 from tqdm import tqdm
 
 
