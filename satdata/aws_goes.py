@@ -180,7 +180,7 @@ class Goes16AWS:
 
         def build_paths():
             t = t_min
-            while t <= t_max + datetime.timedelta(hours=24):
+            while t <= t_max:
                 # AWS stores files by hour, so we need to query a folder at a
                 # time and then filter later
                 prefix = self.make_prefix(
@@ -221,12 +221,13 @@ class Goes16AWS:
             return t_min < t < t_max
 
         def _is_correct_product(key):
-            key_parts = self.parse_key(key)
+            key_parts = self.parse_key(key, parse_times=True)
+            t = key_parts['end_time']
+            correct_sensor_mode = self._check_sensor_mode(sensor_mode, t)
             return (key_parts['channel'] == channel and
-                    key_parts['sensor_mode'] == sensor_mode and
+                    key_parts['sensor_mode'] == correct_sensor_mode and
                     key_parts['region'] == region
                     )
-
         keys = list(filter(is_within_dt_max_tol, keys))
         keys = list(filter(_is_correct_product, keys))
 
