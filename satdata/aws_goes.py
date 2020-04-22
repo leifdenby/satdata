@@ -75,7 +75,7 @@ class Goes16AWS:
                           "c(?P<file_creation_time>\d+)"
                           "\.nc")
 
-    def __init__(self, local_storage_dir='goes16', offline=False):
+    def __init__(self, local_storage_dir='.', offline=False):
         self.offline = offline
         self.local_storage_dir = Path(local_storage_dir)
 
