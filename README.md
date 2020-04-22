@@ -1,6 +1,9 @@
 # satdata
 
-Simplyfied access to GOES-16 data from python or the command line
+![Python
+application](https://github.com/leifdenby/satdata/workflows/Python%20application/badge.svg)
+
+Simplified access to GOES-16 data from python or the command line
 
 ## Installation
 
