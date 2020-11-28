@@ -29,6 +29,7 @@ class Goes16AWS:
 
     PRODUCT_LEVEL_MAP = dict(
         CMIP="L2",
+        TPW="L2",
         Rad="L1b",
     )
 
