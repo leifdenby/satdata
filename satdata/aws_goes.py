@@ -12,6 +12,11 @@ import os
 import re
 from pathlib import Path
 import warnings
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
 
 import s3fs
 
@@ -187,6 +192,11 @@ class Goes16AWS:
     def query(self, time, dt_max=datetime.timedelta(hours=4), sensor="ABI",
               product="Rad", region="C", channel=None, sensor_mode=6, 
               include_in_glacier_storage=False, debug=False):
+        if HAS_NUMPY:
+            if isinstance(time, np.datetime64):
+                # convert back to normal python datetime.datetime
+                # https://stackoverflow.com/a/29753985/271776
+                time = time.astype('M8[ms]').astype('O')
 
         t_max = time + dt_max
         t_min = time - dt_max
