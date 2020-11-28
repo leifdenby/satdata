@@ -68,11 +68,11 @@ class Goes16AWS:
 
     URL = "https://registry.opendata.aws/noaa-goes/"
 
-    KEY_REGEX = re.compile(".*/OR_ABI-L1b-Rad(?P<region>[\w\d]{1,2})-"
-                          "M(?P<sensor_mode>\d)C(?P<channel>\d+)_"
-                          "G16_s(?P<start_time>\d+)_"
-                          "e(?P<end_time>\d+)_"
-                          "c(?P<file_creation_time>\d+)"
+    KEY_REGEX = re.compile(r".*/OR_ABI-(?P<level>[\w\d]{2,3})-(?P<productregion>[\w\d]+)-"
+                          r"M(?P<sensormode_channel>[\w\d]+)_"
+                          r"G16_s(?P<start_time>\d+)_"
+                          r"e(?P<end_time>\d+)_"
+                          r"c(?P<file_creation_time>\d+)"
                           "\.nc")
 
     def __init__(self, local_storage_dir='.', offline=False):
@@ -123,15 +123,21 @@ class Goes16AWS:
             sensor=sensor, product=product, region=region_, level=level,
         )
 
-        p = "{path_prefix}/{year}/{day_of_year:03d}/{hour:02d}/OR_{sensor}-{level}-{product}{region}-M{mode}C{channel:02d}".format(**dict(
+        if level == "L1b":
+            modechannel = f"M{sensor_mode}C{channel:02d}"
+        elif level == "L2":
+            modechannel = f"M{sensor_mode}"
+        else:
+            raise NotImplementedError(level)
+
+        p = "{path_prefix}/{year}/{day_of_year:03d}/{hour:02d}/OR_{sensor}-{level}-{product}{region}-{modechannel}".format(**dict(
                path_prefix=path_prefix,
                product=product,
                day_of_year=t.timetuple().tm_yday,
                year=t.year,
                hour=t.hour,
                sensor=sensor,
-               mode=sensor_mode,
-               channel=channel,
+               modechannel=modechannel,
                level=level,
                region=region,
         ))
@@ -143,8 +149,19 @@ class Goes16AWS:
         if match:
             data = match.groupdict()
 
-            for f in ['channel', 'sensor_mode']:
-                data[f] = int(data[f])
+            productregion = data.pop('productregion')
+            for r in cls.REGIONS.keys():
+                if productregion.endswith(r):
+                    data['product'] = productregion[:-len(r)]
+                    data['region'] = r
+                    break
+
+            sensormode_channel = data.pop('sensormode_channel')
+            if 'C' in sensormode_channel:
+                data['sensor_mode'], data['channel'] = map(int, sensormode_channel.split('C'))
+            else:
+                data['sensor_mode'] = int(sensormode_channel)
+
 
             if parse_times:
                 for (k, v) in data.items():
@@ -168,7 +185,7 @@ class Goes16AWS:
         return datetime.datetime.strptime(s[:-1], "%Y%j%H%M%S")
 
     def query(self, time, dt_max=datetime.timedelta(hours=4), sensor="ABI",
-              product="Rad", region="C", channel=2, sensor_mode=6, 
+              product="Rad", region="C", channel=None, sensor_mode=6, 
               include_in_glacier_storage=False, debug=False):
 
         t_max = time + dt_max
@@ -224,10 +241,14 @@ class Goes16AWS:
             key_parts = self.parse_key(key, parse_times=True)
             t = key_parts['end_time']
             correct_sensor_mode = self._check_sensor_mode(sensor_mode, t)
-            return (key_parts['channel'] == channel and
-                    key_parts['sensor_mode'] == correct_sensor_mode and
-                    key_parts['region'] == region
-                    )
+            is_valid = (
+                key_parts['sensor_mode'] == correct_sensor_mode and
+                key_parts['region'] == region
+            )
+            if channel is not None:
+                is_valid = is_valid & (key_parts['channel'] == channel)
+            return is_valid
+
         keys = list(filter(is_within_dt_max_tol, keys))
         keys = list(filter(_is_correct_product, keys))
 
