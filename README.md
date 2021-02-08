@@ -22,9 +22,9 @@ or clone the repository and use pip to install the local copy
 You can use the command line interface to query and download files:
 
     $> python -m satdata.cli --help
-```
+```bash
 usage: cli.py [-h] [--dt_max DT_MAX] [--region {F,C,M1,M2}]
-              [--channel {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}]
+              [--channel {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16} | --product {CMIP,TPW,RSR}]
               [--fetch-files] [--debug]
               time
 
@@ -40,13 +40,18 @@ optional arguments:
   --region {F,C,M1,M2}  F: full disk, C: continential US, M1: mesoscale region
                         1 (west), M2: mesoscale region 2 (east)
   --channel {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}
-                        1: Blue, 2: Red, 3: Veggie, 4: Cirrus, 5: Snow/Ice, 6:
-                        Cloud Particle Size, 7: Shortwave Window, 8: Upper-
-                        Level tropispheric water vapour, 9: Mid-level
-                        tropospheric water vapour, 10: Lower-level water
-                        vapour, 11: Cloud-top phase, 12: Ozone, 13: 'Clean' IR
-                        longwave window, 14: 'Dirty' IR longwave window, 15:
-                        'Dirty' longwave window, 16: 'CO2' longwave infrared
+                        Radiance channel, options: 1: Blue, 2: Red, 3: Veggie,
+                        4: Cirrus, 5: Snow/Ice, 6: Cloud Particle Size, 7:
+                        Shortwave Window, 8: Upper-Level tropispheric water
+                        vapour, 9: Mid-level tropospheric water vapour, 10:
+                        Lower-level water vapour, 11: Cloud-top phase, 12:
+                        Ozone, 13: 'Clean' IR longwave window, 14: 'Dirty' IR
+                        longwave window, 15: 'Dirty' longwave window, 16:
+                        'CO2' longwave infrared
+  --product {CMIP,TPW,RSR}
+                        Derived products, options: CMIP: Cloud and Moisture
+                        Imagery, TPW: Total Precipitable Water, RSR: Reflected
+                        Shortwave Radiation Top-Of-Atmosphere
   --fetch-files         fetch all files that match query (default is just to
                         print files that match query
   --debug               show debug info

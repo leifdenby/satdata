@@ -1,5 +1,6 @@
 from pathlib import Path
 import datetime
+import pytest
 
 import satdata
 
@@ -68,3 +69,25 @@ def test_parse_L1_key():
 
     for k, v in data.items():
         assert parsed_data[k] == v
+
+
+# check that all products actually are accessible on AWS
+@pytest.mark.parametrize("product", satdata.Goes16AWS.PRODUCTS.keys())
+@pytest.mark.parametrize("region", satdata.Goes16AWS.REGIONS.keys())
+def test_query_products(product, region):
+    lon_zenith = -45.0
+    dt_max = datetime.timedelta(hours=2)
+    t0 = satdata.calc_nearest_zenith_time_at_loc(lon_zenith)
+    t = t0 - datetime.timedelta(days=8)
+
+    cli = satdata.Goes16AWS()
+
+    def query_func():
+        return cli.query(time=t, dt_max=dt_max, region=region, product=product)
+
+    if product in cli.PRODUCT_REGIONS and region not in cli.PRODUCT_REGIONS[product]:
+        with pytest.raises(NotImplementedError):
+            query_func()
+    else:
+        keys = query_func()
+        assert len(keys) > 0
