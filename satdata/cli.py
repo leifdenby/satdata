@@ -17,7 +17,7 @@ def main():
     )
     argparser.add_argument(
         "--dt_max",
-        type=isodate.parse_date,
+        type=isodate.parse_duration,
         help=(
             "query-window around `time`, an ISO8601 formatted duration"
             " for example P1D for one day or PT15M for 15 minutes"
@@ -32,14 +32,26 @@ def main():
             ["{}: {}".format(k, v) for (k, v) in aws_goes.Goes16AWS.REGIONS.items()]
         ),
     )
-    argparser.add_argument(
+    command_group = argparser.add_mutually_exclusive_group()
+    command_group.add_argument(
         "--channel",
         choices=aws_goes.Goes16AWS.CHANNELS.keys(),
         type=int,
-        help=", ".join(
+        help="Radiance channel, options: "
+        + ", ".join(
             ["{}: {}".format(k, v) for (k, v) in aws_goes.Goes16AWS.CHANNELS.items()]
         ),
     )
+    command_group.add_argument(
+        "--product",
+        choices=aws_goes.Goes16AWS.PRODUCTS.keys(),
+        type=str,
+        help="Derived products, options: "
+        + ", ".join(
+            ["{}: {}".format(k, v) for (k, v) in aws_goes.Goes16AWS.PRODUCTS.items()]
+        ),
+    )
+
     argparser.add_argument(
         "--fetch-files",
         default=False,
@@ -60,6 +72,7 @@ def main():
         dt_max=args.dt_max,
         region=args.region,
         channel=args.channel,
+        product=args.product,
         debug=args.debug,
     )
 
