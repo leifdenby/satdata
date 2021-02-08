@@ -36,7 +36,11 @@ class Goes16AWS:
     BUCKET_NAME = "noaa-goes16"
     BUCKET_REGION = "us-east-1"
 
-    PRODUCT_LEVEL_MAP = dict(CMIP="L2", TPW="L2", Rad="L1b",)
+    PRODUCT_LEVEL_MAP = dict(
+        CMIP="L2",
+        TPW="L2",
+        Rad="L1b",
+    )
 
     REGIONS = dict(
         F="full disk",
@@ -138,7 +142,10 @@ class Goes16AWS:
             region_ = "M"
 
         path_prefix = "{sensor}-{level}-{product}{region}".format(
-            sensor=sensor, product=product, region=region_, level=level,
+            sensor=sensor,
+            product=product,
+            region=region_,
+            level=level,
         )
 
         if level == "L1b":

@@ -42,7 +42,12 @@ def test_parse_L2_key():
     c = satdata.Goes16AWS()
     parsed_data = c.parse_key(key)
 
-    data = dict(level="L2", product="TPW", region="C", sensor_mode=6,)
+    data = dict(
+        level="L2",
+        product="TPW",
+        region="C",
+        sensor_mode=6,
+    )
 
     for k, v in data.items():
         assert parsed_data[k] == v
@@ -53,7 +58,13 @@ def test_parse_L1_key():
     c = satdata.Goes16AWS()
     parsed_data = c.parse_key(key)
 
-    data = dict(level="L1b", product="Rad", channel=2, region="C", sensor_mode=6,)
+    data = dict(
+        level="L1b",
+        product="Rad",
+        channel=2,
+        region="C",
+        sensor_mode=6,
+    )
 
     for k, v in data.items():
         assert parsed_data[k] == v
