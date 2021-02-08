@@ -1,10 +1,17 @@
 """
+Interface for querying GOES-16 data stored on Amazon S3
+
+Filename format:
 ABI-L1b-RadF-M3C02 is delineated by hyphen '-':
-jBI: is ABI Sensor
+ABI: is ABI Sensor
 L1b: is processing level, L1b data or L2
-Rad: is radiances. Other products include CMIP (Cloud and Moisture Imagery products) and MCMIP (multichannel CMIP).
-F: is full disk (normally every 15 minutes), C is continental U.S. (normally every 5 minutes), M1 and M2 is Mesoscale region 1 and region 2 (usually every minute each)
-M3: is mode 3 (scan operation), M4 is mode 4 (only full disk scans every five minutes - no mesoscale or CONUS)
+Rad: is radiances. Other products include CMIP (Cloud and Moisture Imagery products)
+     and MCMIP (multichannel CMIP).
+F:   is full disk (normally every 15 minutes), C is continental U.S.
+     (normally every 5 minutes), M1 and M2 is Mesoscale region 1 and region 2
+     (usually every minute each)
+M3:  is mode 3 (scan operation), M4 is mode 4 (only full disk scans every five
+     minutes - no mesoscale or CONUS)
 C02: is channel or band 02, There will be sixteen bands, 01-16
 """
 import datetime
@@ -12,8 +19,10 @@ import os
 import re
 from pathlib import Path
 import warnings
+
 try:
     import numpy as np
+
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
@@ -24,8 +33,8 @@ from tqdm import tqdm
 
 
 class Goes16AWS:
-    BUCKET_NAME = 'noaa-goes16'
-    BUCKET_REGION = 'us-east-1'
+    BUCKET_NAME = "noaa-goes16"
+    BUCKET_REGION = "us-east-1"
 
     PRODUCT_LEVEL_MAP = dict(
         CMIP="L2",
@@ -49,39 +58,39 @@ class Goes16AWS:
         6: "flex mode full disk every 10min",
     }
 
-    SENSOR_MODE_3_TO_4_TRANSITION_DATE = datetime.datetime(
-        year=2019, month=4, day=2
-    )
+    SENSOR_MODE_3_TO_4_TRANSITION_DATE = datetime.datetime(year=2019, month=4, day=2)
 
     CHANNELS = {
-        1:"Blue",
-        2:"Red",
-        3:"Veggie",
-        4:"Cirrus",
-        5:"Snow/Ice",
-        6:"Cloud Particle Size",
-        7:"Shortwave Window",
-        8:"Upper-Level tropispheric water vapour",
-        9:"Mid-level tropospheric water vapour",
-        10:"Lower-level water vapour",
-        11:"Cloud-top phase",
-        12:"Ozone",
-        13:"'Clean' IR longwave window",
-        14:"'Dirty' IR longwave window",
-        15:"'Dirty' longwave window",
-        16:"'CO2' longwave infrared"
+        1: "Blue",
+        2: "Red",
+        3: "Veggie",
+        4: "Cirrus",
+        5: "Snow/Ice",
+        6: "Cloud Particle Size",
+        7: "Shortwave Window",
+        8: "Upper-Level tropispheric water vapour",
+        9: "Mid-level tropospheric water vapour",
+        10: "Lower-level water vapour",
+        11: "Cloud-top phase",
+        12: "Ozone",
+        13: "'Clean' IR longwave window",
+        14: "'Dirty' IR longwave window",
+        15: "'Dirty' longwave window",
+        16: "'CO2' longwave infrared",
     }
 
     URL = "https://registry.opendata.aws/noaa-goes/"
 
-    KEY_REGEX = re.compile(r".*/OR_ABI-(?P<level>[\w\d]{2,3})-(?P<productregion>[\w\d]+)-"
-                          r"M(?P<sensormode_channel>[\w\d]+)_"
-                          r"G16_s(?P<start_time>\d+)_"
-                          r"e(?P<end_time>\d+)_"
-                          r"c(?P<file_creation_time>\d+)"
-                          "\.nc")
+    KEY_REGEX = re.compile(
+        r".*/OR_ABI-(?P<level>[\w\d]{2,3})-(?P<productregion>[\w\d]+)-"
+        r"M(?P<sensormode_channel>[\w\d]+)_"
+        r"G16_s(?P<start_time>\d+)_"
+        r"e(?P<end_time>\d+)_"
+        r"c(?P<file_creation_time>\d+)"
+        r"\.nc"
+    )
 
-    def __init__(self, local_storage_dir='.', offline=False):
+    def __init__(self, local_storage_dir=".", offline=False):
         self.offline = offline
         self.local_storage_dir = Path(local_storage_dir)
 
@@ -90,22 +99,27 @@ class Goes16AWS:
 
     def _check_sensor_mode(self, sensor_mode, t):
         if sensor_mode == 6 and t <= self.SENSOR_MODE_3_TO_4_TRANSITION_DATE:
-            warnings.warn("Sensor mode 6 wasn't available before {},"
-                          " switching to mode 3".format(
-                            str(self.SENSOR_MODE_3_TO_4_TRANSITION_DATE)
-                          ))
+            warnings.warn(
+                "Sensor mode 6 wasn't available before {},"
+                " switching to mode 3".format(
+                    str(self.SENSOR_MODE_3_TO_4_TRANSITION_DATE)
+                )
+            )
             return 3
         elif sensor_mode == 3 and t > self.SENSOR_MODE_3_TO_4_TRANSITION_DATE:
-            warnings.warn("Sensor mode 3 isn't available after {},"
-                          " switching to mode 6".format(
-                            str(self.SENSOR_MODE_3_TO_4_TRANSITION_DATE)
-                          ))
+            warnings.warn(
+                "Sensor mode 3 isn't available after {},"
+                " switching to mode 6".format(
+                    str(self.SENSOR_MODE_3_TO_4_TRANSITION_DATE)
+                )
+            )
             return 6
         else:
             return sensor_mode
 
-    def make_prefix(self, t, product='Rad', sensor="ABI", region="C",
-                    sensor_mode=6, channel=2):
+    def make_prefix(
+        self, t, product="Rad", sensor="ABI", region="C", sensor_mode=6, channel=2
+    ):
         level = self.PRODUCT_LEVEL_MAP.get(product)
 
         sensor_mode = self._check_sensor_mode(sensor_mode, t)
@@ -113,20 +127,25 @@ class Goes16AWS:
         if level is None:
             raise NotImplementedError("Level for {} unknown".format(product))
 
-        if not region in self.REGIONS.keys():
-            raise Exception("`region` should be one of:\n{}".format(
-                ", ".join([
-                    "\t{}: {}\n".format(k, v) for (k,v) in self.REGIONS.items()
-                ])
-            ))
+        if region not in self.REGIONS.keys():
+            raise Exception(
+                "`region` should be one of:\n{}".format(
+                    ", ".join(
+                        ["\t{}: {}\n".format(k, v) for (k, v) in self.REGIONS.items()]
+                    )
+                )
+            )
 
         # for some reason the mesoscale regions use the same folder prefix...
         region_ = region
-        if region in ['M1', 'M2']:
-            region_ = 'M'
+        if region in ["M1", "M2"]:
+            region_ = "M"
 
         path_prefix = "{sensor}-{level}-{product}{region}".format(
-            sensor=sensor, product=product, region=region_, level=level,
+            sensor=sensor,
+            product=product,
+            region=region_,
+            level=level,
         )
 
         if level == "L1b":
@@ -136,17 +155,19 @@ class Goes16AWS:
         else:
             raise NotImplementedError(level)
 
-        p = "{path_prefix}/{year}/{day_of_year:03d}/{hour:02d}/OR_{sensor}-{level}-{product}{region}-{modechannel}".format(**dict(
-               path_prefix=path_prefix,
-               product=product,
-               day_of_year=t.timetuple().tm_yday,
-               year=t.year,
-               hour=t.hour,
-               sensor=sensor,
-               modechannel=modechannel,
-               level=level,
-               region=region,
-        ))
+        p = "{path_prefix}/{year}/{day_of_year:03d}/{hour:02d}/OR_{sensor}-{level}-{product}{region}-{modechannel}".format(
+            **dict(
+                path_prefix=path_prefix,
+                product=product,
+                day_of_year=t.timetuple().tm_yday,
+                year=t.year,
+                hour=t.hour,
+                sensor=sensor,
+                modechannel=modechannel,
+                level=level,
+                region=region,
+            )
+        )
         return p
 
     @classmethod
@@ -155,23 +176,24 @@ class Goes16AWS:
         if match:
             data = match.groupdict()
 
-            productregion = data.pop('productregion')
+            productregion = data.pop("productregion")
             for r in cls.REGIONS.keys():
                 if productregion.endswith(r):
-                    data['product'] = productregion[:-len(r)]
-                    data['region'] = r
+                    data["product"] = productregion[: -len(r)]
+                    data["region"] = r
                     break
 
-            sensormode_channel = data.pop('sensormode_channel')
-            if 'C' in sensormode_channel:
-                data['sensor_mode'], data['channel'] = map(int, sensormode_channel.split('C'))
+            sensormode_channel = data.pop("sensormode_channel")
+            if "C" in sensormode_channel:
+                data["sensor_mode"], data["channel"] = map(
+                    int, sensormode_channel.split("C")
+                )
             else:
-                data['sensor_mode'] = int(sensormode_channel)
-
+                data["sensor_mode"] = int(sensormode_channel)
 
             if parse_times:
                 for (k, v) in data.items():
-                    if k.endswith('_time'):
+                    if k.endswith("_time"):
                         data[k] = cls.parse_timestamp(data[k])
             return data
         else:
@@ -190,17 +212,29 @@ class Goes16AWS:
         """
         return datetime.datetime.strptime(s[:-1], "%Y%j%H%M%S")
 
-    def query(self, time, dt_max=datetime.timedelta(hours=4), sensor="ABI",
-              product="Rad", region="C", channel=None, sensor_mode=6, 
-              include_in_glacier_storage=False, debug=False):
+    def query(
+        self,
+        time,
+        dt_max=datetime.timedelta(hours=4),
+        sensor="ABI",
+        product="Rad",
+        region="C",
+        channel=None,
+        sensor_mode=6,
+        include_in_glacier_storage=False,
+        debug=False,
+    ):
         if HAS_NUMPY:
             if isinstance(time, np.datetime64):
                 # convert back to normal python datetime.datetime
                 # https://stackoverflow.com/a/29753985/271776
-                time = time.astype('M8[ms]').astype('O')
+                time = time.astype("M8[ms]").astype("O")
 
         t_max = time + dt_max
         t_min = time - dt_max
+
+        if product == "Rad" and channel is None:
+            raise Exception("For radiance channels a channel number must be given")
 
         # `<Product>/<Year>/<Day of Year>/<Hour>/<Filename>`
         # last part of prefix path is `hour`, so we list directories by hour
@@ -216,7 +250,7 @@ class Goes16AWS:
                     product=product,
                     region=region,
                     channel=channel,
-                    sensor_mode=sensor_mode
+                    sensor_mode=sensor_mode,
                 )
                 yield str(Path(prefix).parent)
                 t += datetime.timedelta(hours=1)
@@ -227,37 +261,36 @@ class Goes16AWS:
                 if debug:
                     print("Quering prefix `{}`".format(prefix))
                 keys += self.s3client.ls(
-                    's3://{b}/{p}'.format(b=self.BUCKET_NAME, p=prefix)
+                    "s3://{b}/{p}".format(b=self.BUCKET_NAME, p=prefix)
                 )
         else:
             if not self.local_storage_dir.exists():
-                raise Exception("There's currently no directory `{}` for "
-                                "for local storage and so offline queries "
-                                "can't be done.".format(self.local_storage_dir))
+                raise Exception(
+                    "There's currently no directory `{}` for "
+                    "for local storage and so offline queries "
+                    "can't be done.".format(self.local_storage_dir)
+                )
             else:
                 keys = []
                 for prefix in build_paths():
                     fps = self.local_storage_dir.glob("{}*".format(prefix))
-                    keys += [
-                        str(fp.relative_to(self.local_storage_dir))
-                        for fp in fps
-                    ]
+                    keys += [str(fp.relative_to(self.local_storage_dir)) for fp in fps]
 
         def is_within_dt_max_tol(key):
             key_parts = self.parse_key(key, parse_times=True)
-            t = key_parts['end_time']
+            t = key_parts["end_time"]
             return t_min < t < t_max
 
         def _is_correct_product(key):
             key_parts = self.parse_key(key, parse_times=True)
-            t = key_parts['end_time']
+            t = key_parts["end_time"]
             correct_sensor_mode = self._check_sensor_mode(sensor_mode, t)
             is_valid = (
-                key_parts['sensor_mode'] == correct_sensor_mode and
-                key_parts['region'] == region
+                key_parts["sensor_mode"] == correct_sensor_mode
+                and key_parts["region"] == region
             )
             if channel is not None:
-                is_valid = is_valid & (key_parts['channel'] == channel)
+                is_valid = is_valid & (key_parts["channel"] == channel)
             return is_valid
 
         keys = list(filter(is_within_dt_max_tol, keys))
@@ -265,10 +298,11 @@ class Goes16AWS:
 
         return keys
 
-
     def download(self, key, overwrite=False, debug=False):
         if not type(key) == list:
-            keys = [key,]
+            keys = [
+                key,
+            ]
         else:
             keys = key
 
@@ -292,10 +326,7 @@ class Goes16AWS:
             else:
                 if debug:
                     print("Downloading {} -> {}".format(key, fn_out))
-                self.s3client.get(
-                    's3://{p}'.format(p=key),
-                    fn_out
-                )
+                self.s3client.get("s3://{p}".format(p=key), fn_out)
 
             files.append(fn_out)
 
