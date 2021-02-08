@@ -39,7 +39,13 @@ class Goes16AWS:
     PRODUCT_LEVEL_MAP = dict(
         CMIP="L2",
         TPW="L2",
+        RSR="L2",
         Rad="L1b",
+    )
+
+    PRODUCTS = dict(
+        CMIP="Cloud and Moisture Imagery",
+        TPW="Total Precipitable Water",
     )
 
     REGIONS = dict(
