@@ -46,6 +46,12 @@ class Goes16AWS:
     PRODUCTS = dict(
         CMIP="Cloud and Moisture Imagery",
         TPW="Total Precipitable Water",
+        RSR="Reflected Shortwave Radiation Top-Of-Atmosphere",
+    )
+
+    # list of products which are only available in certain regions
+    PRODUCT_REGIONS = dict(
+        RSR=["F", "C"],
     )
 
     REGIONS = dict(
@@ -141,6 +147,13 @@ class Goes16AWS:
                     )
                 )
             )
+
+        if product in self.PRODUCT_REGIONS:
+            if region not in self.PRODUCT_REGIONS[product]:
+                raise NotImplementedError(
+                    f"`{product}` isn't currently available "
+                    f"in the `{region}` region"
+                )
 
         # for some reason the mesoscale regions use the same folder prefix...
         region_ = region
