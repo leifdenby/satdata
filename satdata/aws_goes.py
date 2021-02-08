@@ -41,12 +41,14 @@ class Goes16AWS:
         TPW="L2",
         RSR="L2",
         Rad="L1b",
+        ACHA="L2",
     )
 
     PRODUCTS = dict(
         CMIP="Cloud and Moisture Imagery",
         TPW="Total Precipitable Water",
         RSR="Reflected Shortwave Radiation Top-Of-Atmosphere",
+        ACHA="Cloud Top Height",
     )
 
     # list of products which are only available in certain regions
