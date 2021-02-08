@@ -2,11 +2,11 @@ import datetime
 
 
 def calc_zenith_time_offset_at_loc(lon):
-    T_period = 24*60.*60.  # [s]
+    T_period = 24 * 60.0 * 60.0  # [s]
 
-    dTddeg = T_period/360.
+    dTddeg = T_period / 360.0
 
-    dt = lon*dTddeg
+    dt = lon * dTddeg
 
     return datetime.timedelta(seconds=-dt)
 
@@ -17,9 +17,9 @@ def calc_nearest_zenith_time_at_loc(lon, t_ref=None):
 
     dt_till_midday_today = datetime.timedelta(
         minutes=t_ref.minute,
-        hours=t_ref.hour-12,
+        hours=t_ref.hour - 12,
         seconds=t_ref.second,
-        microseconds=t_ref.microsecond
+        microseconds=t_ref.microsecond,
     )
 
     dt_lon_offset = calc_zenith_time_offset_at_loc(lon=lon)
