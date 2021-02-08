@@ -226,6 +226,9 @@ class Goes16AWS:
         t_max = time + dt_max
         t_min = time - dt_max
 
+        if product == "Rad" and channel is None:
+            raise Exception("For radiance channels a channel number must be given")
+
         # `<Product>/<Year>/<Day of Year>/<Hour>/<Filename>`
         # last part of prefix path is `hour`, so we list directories by hour
         # and filter later

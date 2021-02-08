@@ -12,7 +12,7 @@ def test_fetch_one_channel():
 
     cli = satdata.Goes16AWS()
 
-    keys = cli.query(time=t, region="F", debug=True, dt_max=dt_max)
+    keys = cli.query(time=t, region="F", debug=True, dt_max=dt_max, channel=1)
 
     fn = cli.download(keys[0])[0]
 
@@ -29,7 +29,7 @@ def test_fetch_one_channel_multi_day():
 
     cli = satdata.Goes16AWS()
 
-    keys = cli.query(time=t, dt_max=dt_max, region="F", debug=True)
+    keys = cli.query(time=t, dt_max=dt_max, region="F", debug=True, channel=1)
 
     # imagery should be available at least every 15 mins in the F region
     print("\n".join(keys))
