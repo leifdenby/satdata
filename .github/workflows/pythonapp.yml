@@ -16,7 +16,7 @@ jobs:
     - name: Check with black
       uses: jose-lpa/python-black-check-action@master
       with:
-        line-length: 80
+        line-length: 88
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
