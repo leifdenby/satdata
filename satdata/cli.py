@@ -15,14 +15,21 @@ def main():
             "for example 2020-01-20T16:20Z"
         ),
     )
-    argparser.add_argument(
+    time_group = argparser.add_mutually_exclusive_group()
+    time_group.add_argument(
         "--dt_max",
         type=isodate.parse_duration,
         help=(
             "query-window around `time`, an ISO8601 formatted duration"
             " for example P1D for one day or PT15M for 15 minutes"
         ),
-        default=datetime.timedelta(minutes=20),
+        default=datetime.timedelta(hours=1),
+    )
+    time_group.add_argument(
+        "--nearest-in-time",
+        help="only return dataset closest in time",
+        action="store_true",
+        default=False,
     )
     argparser.add_argument(
         "--region",
@@ -75,6 +82,14 @@ def main():
         product=args.product,
         debug=args.debug,
     )
+
+    if args.nearest_in_time:
+
+        def get_time_offset_for_key(k):
+            t = aws_goes.Goes16AWS.parse_key(k, parse_times=True)["start_time"]
+            return abs(args.time - t)
+
+        keys = sorted(keys, key=get_time_offset_for_key)[:1]
 
     if not args.fetch_files:
         print("Available files ({}):".format(len(keys)))
