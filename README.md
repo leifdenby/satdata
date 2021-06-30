@@ -9,7 +9,7 @@ Simplified access to GOES-16 data from python or the command line
 
 For the moment you will need to install directly from github:
 
-    $> pip install git+https://github.com/leifdenby/satdata?egg=satdata
+    $> pip install git+https://github.com/leifdenby/satdata?#egg=satdata
 
 or clone the repository and use pip to install the local copy
 
@@ -55,6 +55,13 @@ optional arguments:
   --fetch-files         fetch all files that match query (default is just to
                         print files that match query
   --debug               show debug info
+```
+
+For example, to query for full-disc data of the Total Precipitable Water
+(TPW) product near 30th January 2020 at 14:00 UTC run:
+
+```bash
+$> python -m satdata.cli --region F --product ACHA 2020-01-30T14:00
 ```
 
 
