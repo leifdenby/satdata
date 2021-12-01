@@ -42,10 +42,12 @@ class Goes16AWS:
         RSR="L2",
         Rad="L1b",
         ACHA="L2",
+        CPS="L2",
     )
 
     PRODUCTS = dict(
         CMIP="Cloud and Moisture Imagery",
+        CPS="Cloud Particle Size",
         TPW="Total Precipitable Water",
         RSR="Reflected Shortwave Radiation Top-Of-Atmosphere",
         ACHA="Cloud Top Height",
