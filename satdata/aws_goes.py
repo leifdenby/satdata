@@ -43,6 +43,7 @@ class Goes16AWS:
         Rad="L1b",
         ACHA="L2",
         CPS="L2",
+        ACM="L2",
     )
 
     PRODUCTS = dict(
@@ -51,6 +52,7 @@ class Goes16AWS:
         TPW="Total Precipitable Water",
         RSR="Reflected Shortwave Radiation Top-Of-Atmosphere",
         ACHA="Cloud Top Height",
+        ACM="Clear Sky Mask",
     )
 
     # list of products which are only available in certain regions
