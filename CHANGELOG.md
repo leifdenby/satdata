@@ -4,19 +4,27 @@
 
 [Full Changelog](https://github.com/leifdenby/satdata/compare/v0.2.2...HEAD)
 
-**Merged pull requests:**
+*new features*
 
-- add ci task for pypi deployment [\#16](https://github.com/leifdenby/satdata/pull/16) ([leifdenby](https://github.com/leifdenby))
 - add cloud-mask dataset [\#15](https://github.com/leifdenby/satdata/pull/15) ([leifdenby](https://github.com/leifdenby))
 - add cloud particle size \(CPS\) field [\#14](https://github.com/leifdenby/satdata/pull/14) ([leifdenby](https://github.com/leifdenby))
-- bugfix: zenith calculation [\#13](https://github.com/leifdenby/satdata/pull/13) ([leifdenby](https://github.com/leifdenby))
-- add CLI option for nearest-in-time file [\#11](https://github.com/leifdenby/satdata/pull/11) ([leifdenby](https://github.com/leifdenby))
-- fixups for README [\#10](https://github.com/leifdenby/satdata/pull/10) ([leifdenby](https://github.com/leifdenby))
 - add cloud-top height product [\#9](https://github.com/leifdenby/satdata/pull/9) ([leifdenby](https://github.com/leifdenby))
+- add CLI option for nearest-in-time file [\#11](https://github.com/leifdenby/satdata/pull/11) ([leifdenby](https://github.com/leifdenby))
 - Add TOA shortwave reflection product [\#8](https://github.com/leifdenby/satdata/pull/8) ([leifdenby](https://github.com/leifdenby))
+
+*bugfixes*
+
+- fix mistake in zenith time calculation [\#13](https://github.com/leifdenby/satdata/pull/13) ([leifdenby](https://github.com/leifdenby))
+
+*maintenance*
+
+- add ci task for pypi deployment [\#16](https://github.com/leifdenby/satdata/pull/16) ([leifdenby](https://github.com/leifdenby))
 - support products in cli [\#7](https://github.com/leifdenby/satdata/pull/7) ([leifdenby](https://github.com/leifdenby))
 - support products in cli [\#6](https://github.com/leifdenby/satdata/pull/6) ([leifdenby](https://github.com/leifdenby))
 - apply black and add to CI [\#5](https://github.com/leifdenby/satdata/pull/5) ([leifdenby](https://github.com/leifdenby))
+- fixups for README [\#10](https://github.com/leifdenby/satdata/pull/10) ([leifdenby](https://github.com/leifdenby))
+- make radiance measurements (Rad) default when using cli [\#12](https://github.com/leifdenby/satdata/pull/12)
+
 
 ## [v0.2.2](https://github.com/leifdenby/satdata/tree/v0.2.2) (2020-11-28)
 
