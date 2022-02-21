@@ -1,6 +1,7 @@
 import argparse
-import isodate
 import datetime
+
+import isodate
 
 from . import aws_goes
 
@@ -57,7 +58,7 @@ def main():
         + ", ".join(
             ["{}: {}".format(k, v) for (k, v) in aws_goes.Goes16AWS.PRODUCTS.items()]
         ),
-        default="Rad"
+        default="Rad",
     )
 
     argparser.add_argument(

@@ -23,6 +23,7 @@
 - support products in cli [\#6](https://github.com/leifdenby/satdata/pull/6) ([leifdenby](https://github.com/leifdenby))
 - apply black and add to CI [\#5](https://github.com/leifdenby/satdata/pull/5) ([leifdenby](https://github.com/leifdenby))
 - fixups for README [\#10](https://github.com/leifdenby/satdata/pull/10) ([leifdenby](https://github.com/leifdenby))
+- switch to linting with pre-commit [\#18](https://github.com/leifdenby/satdata/pull/18)
 - make radiance measurements (Rad) default when using cli [\#12](https://github.com/leifdenby/satdata/pull/12)
 
 
