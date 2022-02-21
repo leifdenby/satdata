@@ -2,3 +2,6 @@
 *.pyc
 
 notes/
+*.egg-info/
+.eggs/
+build/
