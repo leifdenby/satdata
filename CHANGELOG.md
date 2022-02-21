@@ -24,6 +24,7 @@
 - apply black and add to CI [\#5](https://github.com/leifdenby/satdata/pull/5) ([leifdenby](https://github.com/leifdenby))
 - fixups for README [\#10](https://github.com/leifdenby/satdata/pull/10) ([leifdenby](https://github.com/leifdenby))
 - switch to linting with pre-commit [\#18](https://github.com/leifdenby/satdata/pull/18)
+- make radiance measurements (Rad) default when using cli [\#12](https://github.com/leifdenby/satdata/pull/12)
 
 
 ## [v0.2.2](https://github.com/leifdenby/satdata/tree/v0.2.2) (2020-11-28)
