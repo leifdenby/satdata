@@ -1,5 +1,6 @@
-from pathlib import Path
 import datetime
+from pathlib import Path
+
 import pytest
 
 import satdata

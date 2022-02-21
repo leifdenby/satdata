@@ -1,6 +1,7 @@
 import argparse
-import isodate
 import datetime
+
+import isodate
 
 from . import aws_goes
 
