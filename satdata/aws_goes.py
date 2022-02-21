@@ -17,8 +17,8 @@ C02: is channel or band 02, There will be sixteen bands, 01-16
 import datetime
 import os
 import re
-from pathlib import Path
 import warnings
+from pathlib import Path
 
 try:
     import numpy as np
@@ -28,7 +28,6 @@ except ImportError:
     HAS_NUMPY = False
 
 import s3fs
-
 from tqdm import tqdm
 
 

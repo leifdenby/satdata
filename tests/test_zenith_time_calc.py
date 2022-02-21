@@ -1,5 +1,6 @@
-from satdata import utils
 import datetime
+
+from satdata import utils
 
 
 def test_zenith_calc():
