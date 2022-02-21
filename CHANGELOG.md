@@ -8,6 +8,8 @@
 
 - switch to using `setup.cfg` rather than `setup.py` [\#20](https://github.com/leifdenby/satdata/pull/20) ([leifdenby](https://github.com/leifdenby))
 
+- add test which runs CLI and add missing dependency on `isodate` package [\#19](https://github.com/leifdenby/satdata/pull/19) ([leifdenby](https://github.com/leifdenby))
+
 ## [v0.2.3](https://github.com/leifdenby/satdata/tree/v0.2.3)
 
 [Full Changelog](https://github.com/leifdenby/satdata/compare/v0.2.2...v0.2.3) (2022-02-21)
