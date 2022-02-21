@@ -1,8 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/leifdenby/satdata/tree/HEAD)
+## [v0.2.4](https://github.com/leifdenby/satdata/tree/v0.2.4)
 
-[Full Changelog](https://github.com/leifdenby/satdata/compare/v0.2.3...) (2022-02-21)
+[Full Changelog](https://github.com/leifdenby/satdata/compare/v0.2.3...v0.2.4) (2022-02-21)
 
 *maintenance*
 

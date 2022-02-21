@@ -7,14 +7,18 @@ Simplified access to GOES-16 data from python or the command line
 
 ## Installation
 
-For the moment you will need to install directly from github:
+You can install the most recent version of `satdata` from [pypi](https://pypi.org/project/satdata/) using pip:
 
-    $> pip install git+https://github.com/leifdenby/satdata?#egg=satdata
+```bash
+$> python -m pip install satdata
+```
 
 or clone the repository and use pip to install the local copy
 
-    $> git clone https://github.com/leifdenby/satdata
-    $> pip install satdata/
+```bash
+$> git clone https://github.com/leifdenby/satdata
+$> python -m pip install .
+```
 
 
 ## Usage
