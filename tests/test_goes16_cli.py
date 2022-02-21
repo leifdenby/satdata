@@ -4,6 +4,16 @@ from pathlib import Path
 import pytest
 
 import satdata
+import satdata.cli
+
+
+def test_cli_main():
+    lon_zenith = -45.0
+    t0 = satdata.calc_nearest_zenith_time_at_loc(lon_zenith)
+    t = t0 - datetime.timedelta(days=3)
+
+    cmd = f"{t.isoformat()} --channel 1"
+    satdata.cli.main(args=cmd.split())
 
 
 def test_fetch_one_channel():

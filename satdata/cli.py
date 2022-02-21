@@ -6,7 +6,7 @@ import isodate
 from . import aws_goes
 
 
-def main():
+def main(args=None):
     argparser = argparse.ArgumentParser()
     argparser.add_argument(
         "time",
@@ -39,6 +39,7 @@ def main():
         help=", ".join(
             ["{}: {}".format(k, v) for (k, v) in aws_goes.Goes16AWS.REGIONS.items()]
         ),
+        default="F",
     )
     command_group = argparser.add_mutually_exclusive_group()
     command_group.add_argument(
@@ -73,7 +74,7 @@ def main():
     argparser.add_argument(
         "--debug", default=False, action="store_true", help=("show debug info")
     )
-    args = argparser.parse_args()
+    args = argparser.parse_args(args)
 
     cli = aws_goes.Goes16AWS()
     keys = cli.query(
