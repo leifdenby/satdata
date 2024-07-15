@@ -1,5 +1,14 @@
 # Changelog
 
+## [unreleased](https://github.com/leifdenby/satdata/tree/HEAD)
+
+[Full Changelog](https://github.com/leifdenby/satdata/compare/v0.2.4...HEAD)
+
+*bugfixes*
+
+- handle AWS S3 prefixes being created incorrectly when using windows [\#21](https://github.com/leifdenby/satdata/pull/21)
+
+
 ## [v0.2.4](https://github.com/leifdenby/satdata/tree/v0.2.4)
 
 [Full Changelog](https://github.com/leifdenby/satdata/compare/v0.2.3...v0.2.4) (2022-02-21)
