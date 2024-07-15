@@ -286,7 +286,7 @@ class Goes16AWS:
 
         if not self.offline:
             keys = []
-            for prefix in build_paths():
+            for prefix in build_paths(as_unix_path=True):
                 if debug:
                     print("Quering prefix `{}`".format(prefix))
                 keys += self.s3client.ls(
