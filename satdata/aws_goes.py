@@ -18,7 +18,7 @@ import datetime
 import os
 import re
 import warnings
-from pathlib import Path, PosixPath
+from pathlib import Path, PurePosixPath
 
 try:
     import numpy as np
@@ -277,7 +277,7 @@ class Goes16AWS:
                     sensor_mode=sensor_mode,
                 )
                 if as_unix_path:
-                    p = PosixPath(prefix)
+                    p = PurePosixPath(prefix)
                 else:
                     p = Path(prefix)
                 yield str(p.parent)
