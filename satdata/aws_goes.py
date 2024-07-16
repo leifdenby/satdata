@@ -18,7 +18,7 @@ import datetime
 import os
 import re
 import warnings
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 try:
     import numpy as np
@@ -264,7 +264,7 @@ class Goes16AWS:
         # last part of prefix path is `hour`, so we list directories by hour
         # and filter later
 
-        def build_paths():
+        def build_paths(as_unix_path=False):
             t = t_min
             while t <= t_max:
                 # AWS stores files by hour, so we need to query a folder at a
@@ -276,12 +276,17 @@ class Goes16AWS:
                     channel=channel,
                     sensor_mode=sensor_mode,
                 )
-                yield str(Path(prefix).parent)
+                if as_unix_path:
+                    p = PurePosixPath(prefix)
+                else:
+                    p = Path(prefix)
+                yield str(p.parent)
+
                 t += datetime.timedelta(hours=1)
 
         if not self.offline:
             keys = []
-            for prefix in build_paths():
+            for prefix in build_paths(as_unix_path=True):
                 if debug:
                     print("Quering prefix `{}`".format(prefix))
                 keys += self.s3client.ls(
